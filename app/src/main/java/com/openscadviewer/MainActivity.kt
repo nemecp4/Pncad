@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.opengl.GLSurfaceView
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Menu
@@ -12,10 +14,16 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.tabs.TabLayout
+import com.openscadviewer.console.ConsoleAdapter
+import com.openscadviewer.console.ConsoleViewModel
+import com.openscadviewer.console.LogSeverity
 import com.openscadviewer.editor.SyntaxHighlighter
 import com.openscadviewer.engine.ComputeException
 import com.openscadviewer.engine.EngineManager
@@ -48,6 +56,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusBar: TextView
     private lateinit var btnCancelCompute: MaterialButton
 
+    // Console views
+    private lateinit var consoleContainer: LinearLayout
+    private lateinit var consoleRecyclerView: RecyclerView
+    private lateinit var scrollToBottomButton: ImageButton
+    private lateinit var consoleCloseButton: ImageButton
+    private lateinit var consoleCancelButton: MaterialButton
+
+    private lateinit var consoleViewModel: ConsoleViewModel
+    private lateinit var consoleAdapter: ConsoleAdapter
+
     private var glSurfaceView: GLSurfaceView? = null
     private var sceneRenderer: SceneRenderer? = null
     private var touchHandler: TouchHandler? = null
@@ -60,6 +78,7 @@ class MainActivity : AppCompatActivity() {
     private var currentMesh: MeshResult? = null
     private var currentFileName: String = ""
     private var computeJob: Job? = null
+    private var currentTabPosition: Int = 0
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
@@ -74,6 +93,7 @@ class MainActivity : AppCompatActivity() {
         setupTabLayout()
         setupButtons()
         setupCodeEditor()
+        setupConsole()
 
         // Check if opened with a .scad file intent
         handleIncomingIntent(intent)
@@ -90,6 +110,13 @@ class MainActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         statusBar = findViewById(R.id.statusBar)
         btnCancelCompute = findViewById(R.id.btnCancelCompute)
+
+        // Console views
+        consoleContainer = findViewById(R.id.consoleContainer)
+        consoleRecyclerView = findViewById(R.id.consoleRecyclerView)
+        scrollToBottomButton = findViewById(R.id.scrollToBottomButton)
+        consoleCloseButton = findViewById(R.id.consoleCloseButton)
+        consoleCancelButton = findViewById(R.id.consoleCancelButton)
     }
 
     private fun setupToolbar() {
@@ -100,7 +127,14 @@ class MainActivity : AppCompatActivity() {
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 val position = tab?.position ?: 0
+                currentTabPosition = position
                 viewFlipper.displayedChild = position
+
+                // When switching back to Preview tab, restore console visibility if session is active
+                if (position == 1 && ::consoleViewModel.isInitialized) {
+                    val shouldShow = consoleViewModel.isVisible.value == true
+                    consoleContainer.visibility = if (shouldShow) View.VISIBLE else View.GONE
+                }
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
@@ -149,6 +183,72 @@ translate([0, 0, 20]) {
         val lines = text.split("\n").size
         val numbers = (1..lines).joinToString("\n")
         lineNumbers.text = numbers
+    }
+
+    // --- Console Setup ---
+
+    private fun setupConsole() {
+        // Obtain ConsoleViewModel via ViewModelProvider
+        consoleViewModel = ViewModelProvider(this)[ConsoleViewModel::class.java]
+
+        // Initialize ConsoleAdapter and attach to RecyclerView
+        consoleAdapter = ConsoleAdapter()
+        consoleRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = consoleAdapter
+        }
+
+        // Observe logEntries LiveData to submit list to adapter
+        consoleViewModel.logEntries.observe(this) { entries ->
+            consoleAdapter.submitList(entries) {
+                // After list is submitted, auto-scroll if enabled
+                if (consoleViewModel.autoScroll.value == true && entries.isNotEmpty()) {
+                    consoleRecyclerView.scrollToPosition(consoleAdapter.itemCount - 1)
+                }
+            }
+        }
+
+        // Observe isVisible LiveData to toggle consoleContainer visibility
+        // Only show console when on the Preview tab (position 1) to avoid
+        // showing it on the Code tab during an active session
+        consoleViewModel.isVisible.observe(this) { visible ->
+            val shouldShow = visible && currentTabPosition == 1
+            consoleContainer.visibility = if (shouldShow) View.VISIBLE else View.GONE
+        }
+
+        // Observe autoScroll LiveData to auto-scroll RecyclerView to last position
+        consoleViewModel.autoScroll.observe(this) { enabled ->
+            if (enabled && consoleAdapter.itemCount > 0) {
+                consoleRecyclerView.scrollToPosition(consoleAdapter.itemCount - 1)
+            }
+        }
+
+        // Wire close button to hide console
+        consoleCloseButton.setOnClickListener {
+            consoleViewModel.hide()
+        }
+
+        // Wire scroll-to-bottom button to resume auto-scroll and scroll to end
+        scrollToBottomButton.setOnClickListener {
+            consoleViewModel.setAutoScroll(true)
+            if (consoleAdapter.itemCount > 0) {
+                consoleRecyclerView.scrollToPosition(consoleAdapter.itemCount - 1)
+            }
+        }
+
+        // Detect manual scroll-up via OnScrollListener to pause auto-scroll
+        consoleRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                // If user scrolled up (dy < 0) and can still scroll down, pause auto-scroll
+                if (dy < 0 && recyclerView.canScrollVertically(1)) {
+                    consoleViewModel.setAutoScroll(false)
+                }
+            }
+        })
+
+        // Wire cancel button to cancelComputation()
+        consoleCancelButton.setOnClickListener { cancelComputation() }
     }
 
     // --- Options Menu (Engine Selection) ---
@@ -290,6 +390,8 @@ translate([0, 0, 20]) {
         computeJob?.cancel()
         computeJob = null
         hideComputeProgress()
+        consoleViewModel.logger.emit(LogSeverity.INFO, "Computation cancelled")
+        consoleViewModel.endSession(false)
         statusBar.text = "Computation cancelled"
     }
 
@@ -309,18 +411,23 @@ translate([0, 0, 20]) {
         previewPlaceholder.visibility = View.GONE
         statusBar.text = "Generating preview..."
 
+        // Start console session
+        consoleViewModel.startSession()
+        val progressCallback = consoleViewModel.createProgressCallback()
+
         computeJob = coroutineScope.launch {
             try {
                 val scene = withContext(Dispatchers.Default) {
                     parser.parse(code)
                 }
 
-                val result = engineManager.currentEngine.compute(scene)
+                val result = engineManager.currentEngine.compute(scene, progressCallback)
 
                 result.onSuccess { meshResult ->
                     if (meshResult.vertexCount == 0) {
                         showError("No geometry generated. Check your OpenSCAD code.")
                         hideComputeProgress()
+                        consoleViewModel.endSession(false)
                         if (currentMesh == null) {
                             previewPlaceholder.visibility = View.VISIBLE
                             previewPlaceholder.text = "No geometry to display"
@@ -331,11 +438,14 @@ translate([0, 0, 20]) {
                     currentMesh = meshResult
                     setupGLView(meshResult)
                     hideComputeProgress()
+                    consoleViewModel.endSession(true)
+                    Handler(Looper.getMainLooper()).postDelayed({ consoleViewModel.hide() }, 2000)
                     statusBar.text = "Preview: ${meshResult.triangleCount} triangles"
                 }
 
                 result.onFailure { error ->
                     hideComputeProgress()
+                    consoleViewModel.endSession(false)
                     // Retain last valid geometry on error
                     if (currentMesh == null) {
                         previewPlaceholder.visibility = View.VISIBLE
@@ -345,9 +455,10 @@ translate([0, 0, 20]) {
                 }
 
             } catch (e: CancellationException) {
-                // Cancelled by user, do nothing — last valid geometry retained
+                // Cancelled by user — handled in cancelComputation()
             } catch (e: Exception) {
                 hideComputeProgress()
+                consoleViewModel.endSession(false)
                 // Retain last valid geometry on error
                 if (currentMesh == null) {
                     previewPlaceholder.visibility = View.VISIBLE
@@ -392,23 +503,30 @@ translate([0, 0, 20]) {
         showComputeProgress()
         statusBar.text = "Rendering STL..."
 
+        // Start console session
+        consoleViewModel.startSession()
+        val progressCallback = consoleViewModel.createProgressCallback()
+
         computeJob = coroutineScope.launch {
             try {
                 val scene = withContext(Dispatchers.Default) {
                     parser.parse(code)
                 }
 
-                val result = engineManager.currentEngine.compute(scene)
+                val result = engineManager.currentEngine.compute(scene, progressCallback)
 
                 result.onSuccess { meshResult ->
                     if (meshResult.vertexCount == 0) {
                         showError("No geometry to export")
                         hideComputeProgress()
+                        consoleViewModel.endSession(false)
                         return@launch
                     }
 
                     currentMesh = meshResult
                     hideComputeProgress()
+                    consoleViewModel.endSession(true)
+                    Handler(Looper.getMainLooper()).postDelayed({ consoleViewModel.hide() }, 2000)
 
                     // Ask user where to save
                     val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
@@ -424,13 +542,15 @@ translate([0, 0, 20]) {
 
                 result.onFailure { error ->
                     hideComputeProgress()
+                    consoleViewModel.endSession(false)
                     handleComputeError(error)
                 }
 
             } catch (e: CancellationException) {
-                // Cancelled by user
+                // Cancelled by user — handled in cancelComputation()
             } catch (e: Exception) {
                 hideComputeProgress()
+                consoleViewModel.endSession(false)
                 showError("Render error: ${e.message}")
             }
         }

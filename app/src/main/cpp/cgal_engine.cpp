@@ -81,9 +81,27 @@ static jobject build_error_result(JNIEnv* env, const char* category, const char*
     return env->NewObject(cls, ctor, nullptr, nullptr, nullptr, jCategory, jMessage);
 }
 
+/**
+ * Helper: Invoke a Kotlin Function1<String, Unit> progress callback from native code.
+ */
+static void invoke_progress_callback(JNIEnv* env, jobject callback, const char* message) {
+    if (!callback) return;
+
+    jclass funcClass = env->GetObjectClass(callback);
+    if (!funcClass) return;
+
+    jmethodID invokeMethod = env->GetMethodID(funcClass, "invoke",
+        "(Ljava/lang/Object;)Ljava/lang/Object;");
+    if (!invokeMethod) return;
+
+    jstring jMessage = env->NewStringUTF(message);
+    env->CallObjectMethod(callback, invokeMethod, jMessage);
+    env->DeleteLocalRef(jMessage);
+}
+
 extern "C" JNIEXPORT jobject JNICALL
 Java_com_openscadviewer_engine_CgalComputeEngine_nativeCompute(
-    JNIEnv* env, jobject /* thiz */, jbyteArray sceneJson) {
+    JNIEnv* env, jobject /* thiz */, jbyteArray sceneJson, jobject progressCallback) {
 
     g_cancel_flag.store(false);
 

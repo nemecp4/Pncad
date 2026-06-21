@@ -74,4 +74,5 @@ dependencies {
     testImplementation("net.jqwik:jqwik:1.8.4")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("org.json:json:20231013")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
 }
