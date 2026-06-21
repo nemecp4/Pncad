@@ -238,9 +238,15 @@ build_mpfr() {
         local build_dir="$BUILD_DIR/mpfr-build-$abi"
         local gmp_install="$BUILD_DIR/gmp-install-$abi"
 
-        # Fall back to vendor dir if per-ABI GMP install not found
-        if [[ ! -d "$gmp_install/include" ]]; then
-            gmp_install="$VENDOR_DIR/gmp"
+        # If the per-ABI GMP install doesn't exist, create a temporary one
+        # from the vendor directory with the layout configure expects
+        if [[ ! -f "$gmp_install/lib/libgmp.a" ]]; then
+            echo "    (creating GMP staging dir from vendor for $abi)"
+            gmp_install="$BUILD_DIR/gmp-staging-$abi"
+            rm -rf "$gmp_install"
+            mkdir -p "$gmp_install/include" "$gmp_install/lib"
+            cp "$VENDOR_DIR/gmp/include/gmp.h" "$gmp_install/include/"
+            cp "$VENDOR_DIR/gmp/lib/$abi/libgmp.a" "$gmp_install/lib/"
         fi
 
         rm -rf "$build_dir" "$install_dir"
