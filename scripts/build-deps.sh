@@ -36,11 +36,24 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 
 API_LEVEL="${API_LEVEL:-26}"
-JOBS="${JOBS:-$(nproc)}"
 GMP_VERSION="${GMP_VERSION:-6.3.0}"
 MPFR_VERSION="${MPFR_VERSION:-4.2.1}"
 CGAL_VERSION="${CGAL_VERSION:-6.0.1}"
 BOOST_VERSION="${BOOST_VERSION:-1.86.0}"
+
+# Detect CPU count (cross-platform)
+detect_jobs() {
+    if [[ -n "${JOBS:-}" ]]; then
+        echo "$JOBS"
+    elif command -v nproc &>/dev/null; then
+        nproc
+    elif command -v sysctl &>/dev/null; then
+        sysctl -n hw.ncpu
+    else
+        echo 4
+    fi
+}
+JOBS="$(detect_jobs)"
 
 # Parse --only flag
 BUILD_ONLY="${2:-all}"
@@ -77,6 +90,8 @@ validate_ndk() {
         TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
     elif [[ -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64" ]]; then
         TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64"
+    elif [[ -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-arm64" ]]; then
+        TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-arm64"
     else
         echo "ERROR: Cannot find NDK toolchain in $ANDROID_NDK_HOME" >&2
         exit 1
@@ -108,7 +123,7 @@ download() {
     fi
 
     echo "    Downloading $(basename "$dest")..."
-    wget -q --show-progress -O "$dest" "$url"
+    curl -fSL --progress-bar -o "$dest" "$url"
 }
 
 # ---------------------------------------------------------------------------
