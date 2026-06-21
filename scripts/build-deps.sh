@@ -264,9 +264,18 @@ build_mpfr() {
             gmp_install="$BUILD_DIR/gmp-staging-$abi"
             rm -rf "$gmp_install"
             mkdir -p "$gmp_install/include" "$gmp_install/lib"
+            if [[ ! -f "$VENDOR_DIR/gmp/lib/$abi/libgmp.a" ]]; then
+                echo "ERROR: Cannot find libgmp.a for $abi in vendor dir either." >&2
+                echo "  Expected: $VENDOR_DIR/gmp/lib/$abi/libgmp.a" >&2
+                echo "  Run: $0 --only gmp first." >&2
+                exit 1
+            fi
             cp "$VENDOR_DIR/gmp/include/gmp.h" "$gmp_install/include/"
             cp "$VENDOR_DIR/gmp/lib/$abi/libgmp.a" "$gmp_install/lib/"
         fi
+
+        echo "    Using GMP from: $gmp_install"
+        echo "    libgmp.a exists: $(ls -la "$gmp_install/lib/libgmp.a" 2>&1)"
 
         rm -rf "$build_dir" "$install_dir"
         mkdir -p "$build_dir"
@@ -281,12 +290,14 @@ build_mpfr() {
             --prefix="$install_dir" \
             --disable-shared \
             --enable-static \
-            --with-gmp="$gmp_install" \
+            --with-gmp-include="$gmp_install/include" \
+            --with-gmp-lib="$gmp_install/lib" \
             --with-pic \
             CC="$cc" \
             CXX="$cxx" \
-            CFLAGS="-fPIC" \
-            CXXFLAGS="-fPIC" \
+            CFLAGS="-fPIC -I$gmp_install/include" \
+            CXXFLAGS="-fPIC -I$gmp_install/include" \
+            LDFLAGS="-L$gmp_install/lib -lgmp" \
             > configure.log 2>&1; then
             echo "ERROR: MPFR configure failed for $abi. Log:" >&2
             tail -20 configure.log >&2
