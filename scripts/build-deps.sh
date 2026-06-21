@@ -170,7 +170,7 @@ build_gmp() {
 
         pushd "$build_dir" > /dev/null
 
-        "$gmp_src/configure" \
+        if ! "$gmp_src/configure" \
             --host="$configure_host" \
             --prefix="$install_dir" \
             --disable-shared \
@@ -181,12 +181,31 @@ build_gmp() {
             CXX="$cxx" \
             CFLAGS="-fPIC" \
             CXXFLAGS="-fPIC" \
-            > configure.log 2>&1
+            > configure.log 2>&1; then
+            echo "ERROR: GMP configure failed for $abi. Log:" >&2
+            tail -20 configure.log >&2
+            exit 1
+        fi
 
-        make -j"$JOBS" > make.log 2>&1
-        make install > install.log 2>&1
+        if ! make -j"$JOBS" > make.log 2>&1; then
+            echo "ERROR: GMP make failed for $abi. Log:" >&2
+            tail -20 make.log >&2
+            exit 1
+        fi
+
+        if ! make install > install.log 2>&1; then
+            echo "ERROR: GMP install failed for $abi. Log:" >&2
+            tail -20 install.log >&2
+            exit 1
+        fi
 
         popd > /dev/null
+
+        if [[ ! -f "$install_dir/lib/libgmp.a" ]]; then
+            echo "ERROR: libgmp.a was not produced for $abi" >&2
+            echo "  Check logs in: $build_dir/" >&2
+            exit 1
+        fi
 
         mkdir -p "$VENDOR_DIR/gmp/lib/$abi"
         cp "$install_dir/include/gmp.h" "$VENDOR_DIR/gmp/include/gmp.h"
@@ -257,7 +276,7 @@ build_mpfr() {
 
         pushd "$build_dir" > /dev/null
 
-        "$mpfr_src/configure" \
+        if ! "$mpfr_src/configure" \
             --host="$configure_host" \
             --prefix="$install_dir" \
             --disable-shared \
@@ -268,12 +287,31 @@ build_mpfr() {
             CXX="$cxx" \
             CFLAGS="-fPIC" \
             CXXFLAGS="-fPIC" \
-            > configure.log 2>&1
+            > configure.log 2>&1; then
+            echo "ERROR: MPFR configure failed for $abi. Log:" >&2
+            tail -20 configure.log >&2
+            exit 1
+        fi
 
-        make -j"$JOBS" > make.log 2>&1
-        make install > install.log 2>&1
+        if ! make -j"$JOBS" > make.log 2>&1; then
+            echo "ERROR: MPFR make failed for $abi. Log:" >&2
+            tail -20 make.log >&2
+            exit 1
+        fi
+
+        if ! make install > install.log 2>&1; then
+            echo "ERROR: MPFR install failed for $abi. Log:" >&2
+            tail -20 install.log >&2
+            exit 1
+        fi
 
         popd > /dev/null
+
+        if [[ ! -f "$install_dir/lib/libmpfr.a" ]]; then
+            echo "ERROR: libmpfr.a was not produced for $abi" >&2
+            echo "  Check logs in: $build_dir/" >&2
+            exit 1
+        fi
 
         mkdir -p "$VENDOR_DIR/mpfr/lib/$abi"
         cp "$install_dir/include/mpfr.h" "$VENDOR_DIR/mpfr/include/mpfr.h"
