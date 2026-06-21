@@ -5,23 +5,28 @@ import android.content.Intent
 import android.net.Uri
 import android.opengl.GLSurfaceView
 import android.os.Bundle
-import android.os.Environment
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.MotionEvent
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.tabs.TabLayout
 import com.openscadviewer.editor.SyntaxHighlighter
+import com.openscadviewer.engine.ComputeException
+import com.openscadviewer.engine.EngineManager
+import com.openscadviewer.engine.EngineType
+import com.openscadviewer.engine.ErrorCategory
+import com.openscadviewer.engine.MeshResult
 import com.openscadviewer.parser.OpenSCADParser
-import com.openscadviewer.renderer.MeshGenerator
 import com.openscadviewer.renderer.SceneRenderer
 import com.openscadviewer.renderer.STLExporter
 import com.openscadviewer.renderer.TouchHandler
 import kotlinx.coroutines.*
-import java.io.File
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -32,6 +37,7 @@ class MainActivity : AppCompatActivity() {
         private const val SAVE_STL_FILE = 1002
     }
 
+    private lateinit var toolbar: MaterialToolbar
     private lateinit var codeEditor: EditText
     private lateinit var lineNumbers: TextView
     private lateinit var viewFlipper: ViewFlipper
@@ -40,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewPlaceholder: TextView
     private lateinit var progressBar: ProgressBar
     private lateinit var statusBar: TextView
+    private lateinit var btnCancelCompute: MaterialButton
 
     private var glSurfaceView: GLSurfaceView? = null
     private var sceneRenderer: SceneRenderer? = null
@@ -47,11 +54,12 @@ class MainActivity : AppCompatActivity() {
     private var syntaxHighlighter: SyntaxHighlighter? = null
 
     private val parser = OpenSCADParser()
-    private val meshGenerator = MeshGenerator()
+    private lateinit var engineManager: EngineManager
     private val stlExporter = STLExporter()
 
-    private var currentMesh: MeshGenerator.Mesh? = null
+    private var currentMesh: MeshResult? = null
     private var currentFileName: String = ""
+    private var computeJob: Job? = null
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
@@ -59,7 +67,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        engineManager = EngineManager(this)
+
         initViews()
+        setupToolbar()
         setupTabLayout()
         setupButtons()
         setupCodeEditor()
@@ -69,6 +80,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
+        toolbar = findViewById(R.id.toolbar)
         codeEditor = findViewById(R.id.codeEditor)
         lineNumbers = findViewById(R.id.lineNumbers)
         viewFlipper = findViewById(R.id.viewFlipper)
@@ -77,6 +89,11 @@ class MainActivity : AppCompatActivity() {
         previewPlaceholder = findViewById(R.id.previewPlaceholder)
         progressBar = findViewById(R.id.progressBar)
         statusBar = findViewById(R.id.statusBar)
+        btnCancelCompute = findViewById(R.id.btnCancelCompute)
+    }
+
+    private fun setupToolbar() {
+        setSupportActionBar(toolbar)
     }
 
     private fun setupTabLayout() {
@@ -94,6 +111,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnOpenFile).setOnClickListener { openFilePicker() }
         findViewById<View>(R.id.btnPreview).setOnClickListener { generatePreview() }
         findViewById<View>(R.id.btnRender).setOnClickListener { renderAndExportSTL() }
+        btnCancelCompute.setOnClickListener { cancelComputation() }
     }
 
     private fun setupCodeEditor() {
@@ -131,6 +149,77 @@ translate([0, 0, 20]) {
         val lines = text.split("\n").size
         val numbers = (1..lines).joinToString("\n")
         lineNumbers.text = numbers
+    }
+
+    // --- Options Menu (Engine Selection) ---
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.menu_main, menu)
+        updateEngineMenuState(menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_engine_kotlin -> {
+                engineManager.selectedType = EngineType.KOTLIN
+                item.isChecked = true
+                statusBar.text = "Engine: Simple (Kotlin)"
+                true
+            }
+            R.id.menu_engine_cgal -> {
+                if (!engineManager.isCgalAvailable()) {
+                    handleCgalUnavailable()
+                    return true
+                }
+                engineManager.selectedType = EngineType.CGAL
+                item.isChecked = true
+                statusBar.text = "Engine: Advanced (CGAL)"
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+        updateEngineMenuState(menu)
+        return super.onPrepareOptionsMenu(menu)
+    }
+
+    private fun updateEngineMenuState(menu: Menu?) {
+        menu ?: return
+        val kotlinItem = menu.findItem(R.id.menu_engine_kotlin)
+        val cgalItem = menu.findItem(R.id.menu_engine_cgal)
+
+        // Update checked state based on current selection
+        when (engineManager.selectedType) {
+            EngineType.KOTLIN -> kotlinItem?.isChecked = true
+            EngineType.CGAL -> cgalItem?.isChecked = true
+        }
+
+        // Disable CGAL option if library is unavailable
+        if (!engineManager.isCgalAvailable()) {
+            cgalItem?.isEnabled = false
+            cgalItem?.title = getString(R.string.menu_engine_cgal_unavailable)
+        }
+    }
+
+    /**
+     * Handle the case when CGAL native library is unavailable.
+     * Disables the CGAL option, switches to Kotlin engine, persists the change,
+     * and notifies the user via Snackbar.
+     */
+    private fun handleCgalUnavailable() {
+        // Switch to Kotlin engine and persist
+        engineManager.selectedType = EngineType.KOTLIN
+        // Invalidate menu to update UI state
+        invalidateOptionsMenu()
+        // Notify user
+        Snackbar.make(
+            findViewById(android.R.id.content),
+            "CGAL engine unavailable. Using Kotlin engine.",
+            Snackbar.LENGTH_LONG
+        ).show()
     }
 
     // --- File Operations ---
@@ -184,6 +273,26 @@ translate([0, 0, 20]) {
         }
     }
 
+    // --- Computation Controls ---
+
+    private fun showComputeProgress() {
+        progressBar.visibility = View.VISIBLE
+        btnCancelCompute.visibility = View.VISIBLE
+    }
+
+    private fun hideComputeProgress() {
+        progressBar.visibility = View.GONE
+        btnCancelCompute.visibility = View.GONE
+    }
+
+    private fun cancelComputation() {
+        engineManager.currentEngine.cancel()
+        computeJob?.cancel()
+        computeJob = null
+        hideComputeProgress()
+        statusBar.text = "Computation cancelled"
+    }
+
     // --- Preview ---
 
     private fun generatePreview() {
@@ -196,41 +305,60 @@ translate([0, 0, 20]) {
         // Switch to preview tab
         tabLayout.getTabAt(1)?.select()
 
-        progressBar.visibility = View.VISIBLE
+        showComputeProgress()
         previewPlaceholder.visibility = View.GONE
         statusBar.text = "Generating preview..."
 
-        coroutineScope.launch {
+        computeJob = coroutineScope.launch {
             try {
-                val mesh = withContext(Dispatchers.Default) {
-                    val scene = parser.parse(code)
-                    meshGenerator.generate(scene)
+                val scene = withContext(Dispatchers.Default) {
+                    parser.parse(code)
                 }
 
-                currentMesh = mesh
+                val result = engineManager.currentEngine.compute(scene)
 
-                if (mesh.vertexCount == 0) {
-                    showError("No geometry generated. Check your OpenSCAD code.")
-                    progressBar.visibility = View.GONE
-                    previewPlaceholder.visibility = View.VISIBLE
-                    previewPlaceholder.text = "No geometry to display"
-                    return@launch
+                result.onSuccess { meshResult ->
+                    if (meshResult.vertexCount == 0) {
+                        showError("No geometry generated. Check your OpenSCAD code.")
+                        hideComputeProgress()
+                        if (currentMesh == null) {
+                            previewPlaceholder.visibility = View.VISIBLE
+                            previewPlaceholder.text = "No geometry to display"
+                        }
+                        return@launch
+                    }
+
+                    currentMesh = meshResult
+                    setupGLView(meshResult)
+                    hideComputeProgress()
+                    statusBar.text = "Preview: ${meshResult.triangleCount} triangles"
                 }
 
-                setupGLView(mesh)
-                progressBar.visibility = View.GONE
-                statusBar.text = "Preview: ${mesh.triangleCount} triangles"
+                result.onFailure { error ->
+                    hideComputeProgress()
+                    // Retain last valid geometry on error
+                    if (currentMesh == null) {
+                        previewPlaceholder.visibility = View.VISIBLE
+                        previewPlaceholder.text = "Error: ${error.message}"
+                    }
+                    handleComputeError(error)
+                }
 
+            } catch (e: CancellationException) {
+                // Cancelled by user, do nothing — last valid geometry retained
             } catch (e: Exception) {
-                progressBar.visibility = View.GONE
-                previewPlaceholder.visibility = View.VISIBLE
-                previewPlaceholder.text = "Error: ${e.message}"
+                hideComputeProgress()
+                // Retain last valid geometry on error
+                if (currentMesh == null) {
+                    previewPlaceholder.visibility = View.VISIBLE
+                    previewPlaceholder.text = "Error: ${e.message}"
+                }
                 showError("Parse error: ${e.message}")
             }
         }
     }
 
-    private fun setupGLView(mesh: MeshGenerator.Mesh) {
+    private fun setupGLView(meshResult: MeshResult) {
         if (glSurfaceView == null) {
             glSurfaceView = GLSurfaceView(this).apply {
                 setEGLContextClientVersion(2)
@@ -248,7 +376,7 @@ translate([0, 0, 20]) {
         }
 
         previewPlaceholder.visibility = View.GONE
-        sceneRenderer?.setMeshData(mesh.vertices, mesh.normals, mesh.colors)
+        sceneRenderer?.setMeshData(meshResult.vertices, meshResult.normals, meshResult.colors)
         glSurfaceView?.requestRender()
     }
 
@@ -261,39 +389,48 @@ translate([0, 0, 20]) {
             return
         }
 
-        progressBar.visibility = View.VISIBLE
+        showComputeProgress()
         statusBar.text = "Rendering STL..."
 
-        coroutineScope.launch {
+        computeJob = coroutineScope.launch {
             try {
-                val mesh = withContext(Dispatchers.Default) {
-                    val scene = parser.parse(code)
-                    meshGenerator.generate(scene)
+                val scene = withContext(Dispatchers.Default) {
+                    parser.parse(code)
                 }
 
-                currentMesh = mesh
+                val result = engineManager.currentEngine.compute(scene)
 
-                if (mesh.vertexCount == 0) {
-                    showError("No geometry to export")
-                    progressBar.visibility = View.GONE
-                    return@launch
+                result.onSuccess { meshResult ->
+                    if (meshResult.vertexCount == 0) {
+                        showError("No geometry to export")
+                        hideComputeProgress()
+                        return@launch
+                    }
+
+                    currentMesh = meshResult
+                    hideComputeProgress()
+
+                    // Ask user where to save
+                    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "application/sla"
+                        val baseName = if (currentFileName.isNotEmpty())
+                            currentFileName.removeSuffix(".scad")
+                        else "model"
+                        putExtra(Intent.EXTRA_TITLE, "$baseName.stl")
+                    }
+                    startActivityForResult(intent, SAVE_STL_FILE)
                 }
 
-                progressBar.visibility = View.GONE
-
-                // Ask user where to save
-                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "application/sla"
-                    val baseName = if (currentFileName.isNotEmpty())
-                        currentFileName.removeSuffix(".scad")
-                    else "model"
-                    putExtra(Intent.EXTRA_TITLE, "$baseName.stl")
+                result.onFailure { error ->
+                    hideComputeProgress()
+                    handleComputeError(error)
                 }
-                startActivityForResult(intent, SAVE_STL_FILE)
 
+            } catch (e: CancellationException) {
+                // Cancelled by user
             } catch (e: Exception) {
-                progressBar.visibility = View.GONE
+                hideComputeProgress()
                 showError("Render error: ${e.message}")
             }
         }
@@ -322,6 +459,44 @@ translate([0, 0, 20]) {
     }
 
     // --- Utilities ---
+
+    /**
+     * Handle a compute error by category:
+     * - Shows user-friendly error messages via Snackbar
+     * - On library load failure (COMPUTATION_FAILURE with unavailable library): falls back to Kotlin
+     * - On timeout: shows timeout-specific message
+     * - On cancellation: does nothing (user-initiated)
+     * - Retains last valid geometry in all cases
+     */
+    private fun handleComputeError(error: Throwable) {
+        if (error is ComputeException) {
+            when (error.error.category) {
+                ErrorCategory.TIMEOUT -> {
+                    showError("Computation timed out (60s). Try a simpler model.")
+                }
+                ErrorCategory.OUT_OF_MEMORY -> {
+                    showError("Model too complex. Try simplifying the geometry.")
+                }
+                ErrorCategory.INVALID_INPUT -> {
+                    showError("Invalid model input")
+                }
+                ErrorCategory.CANCELLED -> {
+                    // User-initiated cancellation — no error shown
+                    statusBar.text = "Computation cancelled"
+                }
+                ErrorCategory.COMPUTATION_FAILURE -> {
+                    // Check if this is a library load failure
+                    if (!engineManager.isCgalAvailable() && engineManager.selectedType == EngineType.CGAL) {
+                        handleCgalUnavailable()
+                    } else {
+                        showError("Computation failed: ${error.error.message}")
+                    }
+                }
+            }
+        } else {
+            showError("Compute error: ${error.message}")
+        }
+    }
 
     private fun showError(message: String) {
         statusBar.text = "Error: $message"

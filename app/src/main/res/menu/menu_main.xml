@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/menu_engine_group"
+        android:title="@string/menu_engine_title"
+        app:showAsAction="never">
+        <menu>
+            <group
+                android:id="@+id/engine_group"
+                android:checkableBehavior="single">
+
+                <item
+                    android:id="@+id/menu_engine_kotlin"
+                    android:title="@string/menu_engine_kotlin"
+                    android:checked="true" />
+
+                <item
+                    android:id="@+id/menu_engine_cgal"
+                    android:title="@string/menu_engine_cgal" />
+
+            </group>
+        </menu>
+    </item>
+
+</menu>

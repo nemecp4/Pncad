@@ -42,9 +42,21 @@ class MeshGenerator {
         transform: Matrix4
     ) {
         when (node) {
-            is SceneNode.Cube -> generateCube(node, vertices, normals, colors, transform)
-            is SceneNode.Sphere -> generateSphere(node, vertices, normals, colors, transform)
-            is SceneNode.Cylinder -> generateCylinder(node, vertices, normals, colors, transform)
+            is SceneNode.Cube -> {
+                if (node.sizeX > 0.0 && node.sizeY > 0.0 && node.sizeZ > 0.0) {
+                    generateCube(node, vertices, normals, colors, transform)
+                }
+            }
+            is SceneNode.Sphere -> {
+                if (node.radius > 0.0) {
+                    generateSphere(node, vertices, normals, colors, transform)
+                }
+            }
+            is SceneNode.Cylinder -> {
+                if (node.height > 0.0 && (node.radius1 > 0.0 || node.radius2 > 0.0)) {
+                    generateCylinder(node, vertices, normals, colors, transform)
+                }
+            }
             is SceneNode.Circle -> generateCircle2D(node, vertices, normals, colors, transform)
             is SceneNode.Square -> generateSquare2D(node, vertices, normals, colors, transform)
             is SceneNode.Polygon -> generatePolygon2D(node, vertices, normals, colors, transform)

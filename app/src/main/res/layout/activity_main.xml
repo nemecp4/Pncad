@@ -130,6 +130,18 @@
                 android:layout_gravity="center"
                 android:visibility="gone" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCancelCompute"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal|bottom"
+                android:layout_marginBottom="24dp"
+                android:text="Cancel"
+                android:visibility="gone"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:textColor="@color/white"
+                app:strokeColor="@color/white" />
+
         </FrameLayout>
 
     </ViewFlipper>

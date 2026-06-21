@@ -1,0 +1,11 @@
+# Ignore vendor library and header files (too large for version control).
+# The .gitkeep files and README.md are still tracked.
+
+# Static libraries
+*.a
+
+# Header files in vendor subdirectories
+cgal/include/CGAL/
+boost/include/boost/
+gmp/include/*.h
+mpfr/include/*.h

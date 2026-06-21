@@ -10,4 +10,8 @@
     <string name="preview_ready">Preview ready</string>
     <string name="stl_exported">STL exported successfully</string>
     <string name="error_parsing">Error parsing OpenSCAD file</string>
+    <string name="menu_engine_title">Compute Engine</string>
+    <string name="menu_engine_kotlin">Simple (Kotlin)</string>
+    <string name="menu_engine_cgal">Advanced (CGAL)</string>
+    <string name="menu_engine_cgal_unavailable">Advanced (CGAL) (unavailable)</string>
 </resources>

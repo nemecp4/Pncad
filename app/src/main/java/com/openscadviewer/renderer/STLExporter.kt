@@ -1,5 +1,6 @@
 package com.openscadviewer.renderer
 
+import com.openscadviewer.engine.MeshResult
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -80,6 +81,14 @@ class STLExporter {
 
             outputStream.write(triBuffer.array())
         }
+    }
+
+    /**
+     * Export MeshResult as binary STL to an output stream.
+     */
+    fun exportBinary(meshResult: MeshResult, outputStream: OutputStream) {
+        val mesh = MeshGenerator.Mesh(meshResult.vertices, meshResult.normals, meshResult.colors)
+        exportBinary(mesh, outputStream)
     }
 
     /**
