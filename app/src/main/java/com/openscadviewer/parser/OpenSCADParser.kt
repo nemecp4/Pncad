@@ -553,7 +553,7 @@ class OpenSCADParser {
                         val exp = parseExpression()
                         skipWhitespaceAndComments()
                         if (pos < input.length && input[pos] == ')') pos++
-                        return kotlin.math.pow(base, exp)
+                        return Math.pow(base, exp)
                     }
                     return 0.0
                 }
@@ -761,7 +761,5 @@ class OpenSCADParser {
         }
     }
 
-    private fun kotlin.math.pow(base: Double, exp: Double): Double {
-        return Math.pow(base, exp)
-    }
+
 }

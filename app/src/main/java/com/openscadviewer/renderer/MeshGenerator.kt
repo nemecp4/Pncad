@@ -14,6 +14,7 @@ class MeshGenerator {
         val normals: FloatArray,    // nx,ny,nz triplets
         val colors: FloatArray      // r,g,b,a quads
     ) {
+        val vertexCount: Int get() = vertices.size / 3
         val triangleCount: Int get() = vertices.size / 9
     }
 
