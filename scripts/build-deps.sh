@@ -179,6 +179,10 @@ build_gmp() {
             --with-pic \
             CC="$cc" \
             CXX="$cxx" \
+            AR="$TOOLCHAIN/bin/llvm-ar" \
+            RANLIB="$TOOLCHAIN/bin/llvm-ranlib" \
+            NM="$TOOLCHAIN/bin/llvm-nm" \
+            STRIP="$TOOLCHAIN/bin/llvm-strip" \
             CFLAGS="-fPIC" \
             CXXFLAGS="-fPIC" \
             > configure.log 2>&1; then
@@ -189,7 +193,7 @@ build_gmp() {
 
         if ! make -j"$JOBS" > make.log 2>&1; then
             echo "ERROR: GMP make failed for $abi. Log:" >&2
-            tail -20 make.log >&2
+            tail -30 make.log >&2
             exit 1
         fi
 
@@ -204,6 +208,15 @@ build_gmp() {
         if [[ ! -f "$install_dir/lib/libgmp.a" ]]; then
             echo "ERROR: libgmp.a was not produced for $abi" >&2
             echo "  Check logs in: $build_dir/" >&2
+            exit 1
+        fi
+
+        # Sanity check: a real libgmp.a should be at least 100KB
+        local lib_size
+        lib_size=$(wc -c < "$install_dir/lib/libgmp.a")
+        if [[ "$lib_size" -lt 100000 ]]; then
+            echo "ERROR: libgmp.a is suspiciously small (${lib_size} bytes) for $abi" >&2
+            echo "  GMP build likely failed. Check: $build_dir/make.log" >&2
             exit 1
         fi
 
@@ -295,6 +308,10 @@ build_mpfr() {
             --with-pic \
             CC="$cc" \
             CXX="$cxx" \
+            AR="$TOOLCHAIN/bin/llvm-ar" \
+            RANLIB="$TOOLCHAIN/bin/llvm-ranlib" \
+            NM="$TOOLCHAIN/bin/llvm-nm" \
+            STRIP="$TOOLCHAIN/bin/llvm-strip" \
             CFLAGS="-fPIC -I$gmp_install/include" \
             CXXFLAGS="-fPIC -I$gmp_install/include" \
             LDFLAGS="-L$gmp_install/lib -lgmp" \
