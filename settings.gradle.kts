@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "OpenSCAD Viewer"
-include(":app")
+include(":app", ":shared-base", ":kotlin-engine", ":cgal-engine", ":benchmark")
