@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingHorizontal="8dp"
+    android:paddingVertical="2dp"
+    android:background="@android:color/transparent">
+
+    <TextView
+        android:id="@+id/logTimestamp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textSize="12sp"
+        android:textColor="#B0BEC5"
+        android:paddingEnd="6dp"
+        tools:text="12:34:56.789" />
+
+    <TextView
+        android:id="@+id/logSeverity"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textSize="12sp"
+        android:textColor="#B0BEC5"
+        android:paddingEnd="6dp"
+        tools:text="INFO" />
+
+    <TextView
+        android:id="@+id/logMessage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:fontFamily="monospace"
+        android:textSize="12sp"
+        android:textColor="#B0BEC5"
+        android:ellipsize="none"
+        android:singleLine="false"
+        tools:text="Parsing OpenSCAD source..." />
+
+</LinearLayout>
