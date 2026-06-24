@@ -63,13 +63,20 @@ class StlOutputWriter(
     fun write(result: BenchmarkResult, meshResult: MeshResult) {
         if (result.status != ResultStatus.SUCCESS) return
 
-        if (!ensureOutputDir()) return
+        // Write to engine-specific subdirectory
+        val engineDir = File(outputDir, result.engineName)
+        try {
+            if (!engineDir.exists()) engineDir.mkdirs()
+        } catch (e: SecurityException) {
+            System.err.println("WARNING: Cannot create output directory '${engineDir.absolutePath}': ${e.message}")
+            return
+        }
 
         val filename = StlFileNamer.generateFilename(
             result.testCase.category,
             result.testCase.name
         )
-        val outputFile = File(outputDir, filename)
+        val outputFile = File(engineDir, filename)
 
         try {
             FileOutputStream(outputFile).use { fos ->

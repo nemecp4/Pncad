@@ -410,23 +410,49 @@ The CGAL engine performs correct CSG boolean operations (difference, intersectio
 but requires the native library `libcgal_engine.so` to be available on the JVM
 library path.
 
-To run benchmarks with the CGAL engine enabled:
+The native source is at `app/src/main/cpp/cgal_engine.cpp` and is normally
+compiled by the Android NDK for ARM/x86_64 targets. To run benchmarks with CGAL
+on a Linux desktop, you need to compile it for your host platform:
 
 ```bash
-# Build the native library for your host platform (Linux x86_64)
-# (requires CGAL, GMP, MPFR, Boost headers installed system-wide)
-mkdir -p cgal-engine/build/native && cd cgal-engine/build/native
-cmake ../../src/main/cpp -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
+# Prerequisites: install CGAL, GMP, MPFR, Boost dev packages
+sudo apt install -y libcgal-dev libgmp-dev libmpfr-dev libboost-dev
+
+# Build the native library for desktop (Linux x86_64)
+mkdir -p build/cgal-native && cd build/cgal-native
+
+# The native code uses Android-specific headers (android/log.h) and custom
+# headers (nlohmann/json.hpp, cgal_compute.h, scene_builder.h).
+# Create a stub for the Android logger:
+mkdir -p android
+echo '#define __android_log_print(...)' > android/log.h
+
+# Compile (adjust include paths if headers are elsewhere)
+g++ -shared -fPIC -O2 \
+    ../../../app/src/main/cpp/cgal_engine.cpp \
+    -o libcgal_engine.so \
+    -lgmp -lmpfr \
+    -I. \
+    -I../../../app/src/main/cpp \
+    -I/usr/include \
+    -I$(readlink -f /usr/lib/jvm/java-17-openjdk-amd64/include) \
+    -I$(readlink -f /usr/lib/jvm/java-17-openjdk-amd64/include/linux)
+
 cd ../../..
 
 # Run benchmarks with native library on the path
 ./gradlew :benchmark:cleanTest :benchmark:test --tests '*BenchmarkTest*' \
-    -Djava.library.path=cgal-engine/build/native
+    -Pcgal.library.path=build/cgal-native
 ```
 
+**Note:** The native code was designed for Android NDK cross-compilation. The
+desktop build above may fail due to missing custom headers (`cgal_compute.h`,
+`scene_builder.h`, `nlohmann/json.hpp`). These are project-internal headers in
+`app/src/main/cpp/`. If the build fails, the CGAL engine simply reports SKIPPED
+in benchmark output — the benchmark always completes regardless.
+
 If `libcgal_engine.so` is not found, the CGAL engine reports `isAvailable() = false`
-and all its results show as SKIPPED. This is safe — the benchmark always completes.
+and all its results show as SKIPPED.
 
 ### Engine Comparison: Kotlin vs CGAL
 

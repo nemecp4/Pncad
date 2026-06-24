@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.openscadviewer.benchmark.BenchmarkTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-06-24T12:26:39.886Z" hostname="beebubu" time="0.25">
+<testsuite name="com.openscadviewer.benchmark.BenchmarkTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-06-24T15:20:14.961Z" hostname="beebubu" time="0.592">
   <properties/>
-  <testcase name="run all 50 test cases against available engines()" classname="com.openscadviewer.benchmark.BenchmarkTest" time="0.24"/>
+  <testcase name="run all 50 test cases against available engines()" classname="com.openscadviewer.benchmark.BenchmarkTest" time="0.585"/>
   <system-out><![CDATA[engine - kotlin
-prim_cube_unit - 0,017 seconds
+prim_cube_unit - 0,023 seconds
   prim_cube_unit.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_cube_unit.stl
-prim_sphere_basic - 0,003 seconds
+prim_sphere_basic - 0,004 seconds
   prim_sphere_basic.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_sphere_basic.stl
-prim_cylinder_basic - 0,001 seconds
+prim_cylinder_basic - 0,000 seconds
   prim_cylinder_basic.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_cylinder_basic.stl
 prim_circle_basic - 0,000 seconds
   prim_circle_basic.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_circle_basic.stl
 prim_square_basic - 0,000 seconds
   prim_square_basic.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_square_basic.stl
-prim_polygon_triangle - 0,000 seconds
+prim_polygon_triangle - 0,001 seconds
   prim_polygon_triangle.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_polygon_triangle.stl
-prim_cube_centered - 0,000 seconds
+prim_cube_centered - 0,001 seconds
   prim_cube_centered.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_cube_centered.stl
-prim_large_sphere_in_union - 0,003 seconds
+prim_large_sphere_in_union - 0,004 seconds
   prim_large_sphere_in_union.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_large_sphere_in_union.stl
-trans_translate_cube - 0,001 seconds
+trans_translate_cube - 0,000 seconds
   trans_translate_cube.scad -> ./benchmark/build/benchmark-stl/transformations_trans_translate_cube.stl
-trans_rotate_cube - 0,001 seconds
+trans_rotate_cube - 0,000 seconds
   trans_rotate_cube.scad -> ./benchmark/build/benchmark-stl/transformations_trans_rotate_cube.stl
 trans_scale_sphere - 0,002 seconds
   trans_scale_sphere.scad -> ./benchmark/build/benchmark-stl/transformations_trans_scale_sphere.stl
@@ -33,15 +33,15 @@ trans_scale_uniform - 0,000 seconds
   trans_scale_uniform.scad -> ./benchmark/build/benchmark-stl/transformations_trans_scale_uniform.stl
 trans_nested_translate_rotate_scale - 0,000 seconds
   trans_nested_translate_rotate_scale.scad -> ./benchmark/build/benchmark-stl/transformations_trans_nested_translate_rotate_scale.stl
-trans_multiple_nested - 0,002 seconds
+trans_multiple_nested - 0,003 seconds
   trans_multiple_nested.scad -> ./benchmark/build/benchmark-stl/transformations_trans_multiple_nested.stl
 extrude_circle_basic - 0,000 seconds
   extrude_circle_basic.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_circle_basic.stl
 extrude_square_basic - 0,000 seconds
   extrude_square_basic.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_square_basic.stl
-extrude_polygon_basic - 0,001 seconds
+extrude_polygon_basic - 0,000 seconds
   extrude_polygon_basic.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_polygon_basic.stl
-extrude_tall_circle - 0,000 seconds
+extrude_tall_circle - 0,001 seconds
   extrude_tall_circle.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_tall_circle.stl
 extrude_small_square - 0,000 seconds
   extrude_small_square.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_small_square.stl
@@ -51,21 +51,21 @@ csg_union_two_cubes - 0,000 seconds
   csg_union_two_cubes.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_union_two_cubes.stl
 csg_difference_cube_sphere - 0,002 seconds
   csg_difference_cube_sphere.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_difference_cube_sphere.stl
-csg_intersection_cube_sphere - 0,001 seconds
+csg_intersection_cube_sphere - 0,002 seconds
   csg_intersection_cube_sphere.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_intersection_cube_sphere.stl
-csg_union_three_spheres - 0,006 seconds
+csg_union_three_spheres - 0,007 seconds
   csg_union_three_spheres.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_union_three_spheres.stl
-csg_difference_cylinder_hole - 0,002 seconds
+csg_difference_cylinder_hole - 0,000 seconds
   csg_difference_cylinder_hole.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_difference_cylinder_hole.stl
-csg_intersection_two_cylinders - 0,000 seconds
+csg_intersection_two_cylinders - 0,001 seconds
   csg_intersection_two_cylinders.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_intersection_two_cylinders.stl
 csg_union_mixed_primitives - 0,001 seconds
   csg_union_mixed_primitives.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_union_mixed_primitives.stl
 csg_difference_multiple - 0,000 seconds
   csg_difference_multiple.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_difference_multiple.stl
-csg_nested_union_difference - 0,000 seconds
+csg_nested_union_difference - 0,001 seconds
   csg_nested_union_difference.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_nested_union_difference.stl
-csg_deep_nested_operations - 0,001 seconds
+csg_deep_nested_operations - 0,002 seconds
   csg_deep_nested_operations.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_deep_nested_operations.stl
 comb_color_cube - 0,000 seconds
   comb_color_cube.scad -> ./benchmark/build/benchmark-stl/combined_operations_comb_color_cube.stl
@@ -75,13 +75,13 @@ comb_transform_csg_scene - 0,001 seconds
   comb_transform_csg_scene.scad -> ./benchmark/build/benchmark-stl/combined_operations_comb_transform_csg_scene.stl
 comb_color_translate_union - 0,001 seconds
   comb_color_translate_union.scad -> ./benchmark/build/benchmark-stl/combined_operations_comb_color_translate_union.stl
-comb_rotate_difference_cylinder - 0,001 seconds
+comb_rotate_difference_cylinder - 0,000 seconds
   comb_rotate_difference_cylinder.scad -> ./benchmark/build/benchmark-stl/combined_operations_comb_rotate_difference_cylinder.stl
 comb_scale_union_multi - 0,001 seconds
   comb_scale_union_multi.scad -> ./benchmark/build/benchmark-stl/combined_operations_comb_scale_union_multi.stl
 comb_complex_scene - 0,001 seconds
   comb_complex_scene.scad -> ./benchmark/build/benchmark-stl/combined_operations_comb_complex_scene.stl
-comb_nested_transforms_csg - 0,001 seconds
+comb_nested_transforms_csg - 0,000 seconds
   comb_nested_transforms_csg.scad -> ./benchmark/build/benchmark-stl/combined_operations_comb_nested_transforms_csg.stl
 var_simple_cube_size - 0,000 seconds
   var_simple_cube_size.scad -> ./benchmark/build/benchmark-stl/variables_expressions_var_simple_cube_size.stl
@@ -93,7 +93,7 @@ var_multiple_variables_scene - 0,001 seconds
   var_multiple_variables_scene.scad -> ./benchmark/build/benchmark-stl/variables_expressions_var_multiple_variables_scene.stl
 var_computed_positions - 0,002 seconds
   var_computed_positions.scad -> ./benchmark/build/benchmark-stl/variables_expressions_var_computed_positions.stl
-edge_comments_in_code - 0,000 seconds
+edge_comments_in_code - 0,001 seconds
   edge_comments_in_code.scad -> ./benchmark/build/benchmark-stl/edge_cases_edge_comments_in_code.stl
 edge_nested_expressions - 0,000 seconds
   edge_nested_expressions.scad -> ./benchmark/build/benchmark-stl/edge_cases_edge_nested_expressions.stl
@@ -101,116 +101,176 @@ edge_variable_references - 0,000 seconds
   edge_variable_references.scad -> ./benchmark/build/benchmark-stl/edge_cases_edge_variable_references.stl
 edge_multiline_code - 0,000 seconds
   edge_multiline_code.scad -> ./benchmark/build/benchmark-stl/edge_cases_edge_multiline_code.stl
-edge_named_parameters - 0,000 seconds
+edge_named_parameters - 0,001 seconds
   edge_named_parameters.scad -> ./benchmark/build/benchmark-stl/edge_cases_edge_named_parameters.stl
 sun - 0,001 seconds
   sun.scad -> ./benchmark/build/benchmark-stl/custom_sun.stl
 controll_rose - 0,000 seconds
   controll_rose.scad -> ./benchmark/build/benchmark-stl/custom_controll_rose.stl
 engine - cgal
-prim_cube_unit - 0,000 seconds
-  SKIPPED
-prim_sphere_basic - 0,000 seconds
-  SKIPPED
-prim_cylinder_basic - 0,000 seconds
-  SKIPPED
-prim_circle_basic - 0,000 seconds
-  SKIPPED
+prim_cube_unit - 0,008 seconds
+  prim_cube_unit.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_cube_unit.stl
+prim_sphere_basic - 0,002 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+prim_cylinder_basic - 0,005 seconds
+  prim_cylinder_basic.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_cylinder_basic.stl
+prim_circle_basic - 0,001 seconds
+  prim_circle_basic.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_circle_basic.stl
 prim_square_basic - 0,000 seconds
-  SKIPPED
+  prim_square_basic.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_square_basic.stl
 prim_polygon_triangle - 0,000 seconds
-  SKIPPED
-prim_cube_centered - 0,000 seconds
-  SKIPPED
-prim_large_sphere_in_union - 0,000 seconds
-  SKIPPED
-trans_translate_cube - 0,000 seconds
-  SKIPPED
-trans_rotate_cube - 0,000 seconds
-  SKIPPED
-trans_scale_sphere - 0,000 seconds
-  SKIPPED
-trans_translate_cylinder - 0,000 seconds
-  SKIPPED
-trans_rotate_y_cube - 0,000 seconds
-  SKIPPED
-trans_scale_uniform - 0,000 seconds
-  SKIPPED
-trans_nested_translate_rotate_scale - 0,000 seconds
-  SKIPPED
-trans_multiple_nested - 0,000 seconds
-  SKIPPED
-extrude_circle_basic - 0,000 seconds
-  SKIPPED
-extrude_square_basic - 0,000 seconds
-  SKIPPED
-extrude_polygon_basic - 0,000 seconds
-  SKIPPED
-extrude_tall_circle - 0,000 seconds
-  SKIPPED
-extrude_small_square - 0,000 seconds
-  SKIPPED
-extrude_translated_rotated - 0,000 seconds
-  SKIPPED
-csg_union_two_cubes - 0,000 seconds
-  SKIPPED
-csg_difference_cube_sphere - 0,000 seconds
-  SKIPPED
-csg_intersection_cube_sphere - 0,000 seconds
-  SKIPPED
-csg_union_three_spheres - 0,000 seconds
-  SKIPPED
-csg_difference_cylinder_hole - 0,000 seconds
-  SKIPPED
-csg_intersection_two_cylinders - 0,000 seconds
-  SKIPPED
-csg_union_mixed_primitives - 0,000 seconds
-  SKIPPED
-csg_difference_multiple - 0,000 seconds
-  SKIPPED
-csg_nested_union_difference - 0,000 seconds
-  SKIPPED
-csg_deep_nested_operations - 0,000 seconds
-  SKIPPED
-comb_color_cube - 0,000 seconds
-  SKIPPED
+  prim_polygon_triangle.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_polygon_triangle.stl
+prim_cube_centered - 0,001 seconds
+  prim_cube_centered.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_cube_centered.stl
+prim_large_sphere_in_union - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+trans_translate_cube - 0,001 seconds
+  trans_translate_cube.scad -> ./benchmark/build/benchmark-stl/transformations_trans_translate_cube.stl
+trans_rotate_cube - 0,006 seconds
+  trans_rotate_cube.scad -> ./benchmark/build/benchmark-stl/transformations_trans_rotate_cube.stl
+trans_scale_sphere - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+trans_translate_cylinder - 0,004 seconds
+  trans_translate_cylinder.scad -> ./benchmark/build/benchmark-stl/transformations_trans_translate_cylinder.stl
+trans_rotate_y_cube - 0,005 seconds
+  trans_rotate_y_cube.scad -> ./benchmark/build/benchmark-stl/transformations_trans_rotate_y_cube.stl
+trans_scale_uniform - 0,002 seconds
+  trans_scale_uniform.scad -> ./benchmark/build/benchmark-stl/transformations_trans_scale_uniform.stl
+trans_nested_translate_rotate_scale - 0,006 seconds
+  trans_nested_translate_rotate_scale.scad -> ./benchmark/build/benchmark-stl/transformations_trans_nested_translate_rotate_scale.stl
+trans_multiple_nested - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+extrude_circle_basic - 0,005 seconds
+  extrude_circle_basic.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_circle_basic.stl
+extrude_square_basic - 0,001 seconds
+  extrude_square_basic.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_square_basic.stl
+extrude_polygon_basic - 0,001 seconds
+  extrude_polygon_basic.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_polygon_basic.stl
+extrude_tall_circle - 0,004 seconds
+  extrude_tall_circle.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_tall_circle.stl
+extrude_small_square - 0,001 seconds
+  extrude_small_square.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_small_square.stl
+extrude_translated_rotated - 0,042 seconds
+  extrude_translated_rotated.scad -> ./benchmark/build/benchmark-stl/linear_extrusion_extrude_translated_rotated.stl
+csg_union_two_cubes - 0,002 seconds
+  csg_union_two_cubes.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_union_two_cubes.stl
+csg_difference_cube_sphere - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+csg_intersection_cube_sphere - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+csg_union_three_spheres - 0,002 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+csg_difference_cylinder_hole - 0,007 seconds
+  csg_difference_cylinder_hole.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_difference_cylinder_hole.stl
+csg_intersection_two_cylinders - 0,045 seconds
+  csg_intersection_two_cylinders.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_intersection_two_cylinders.stl
+csg_union_mixed_primitives - 0,002 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+csg_difference_multiple - 0,010 seconds
+  csg_difference_multiple.scad -> ./benchmark/build/benchmark-stl/csg_operations_csg_difference_multiple.stl
+csg_nested_union_difference - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+csg_deep_nested_operations - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+comb_color_cube - 0,001 seconds
+  comb_color_cube.scad -> ./benchmark/build/benchmark-stl/combined_operations_comb_color_cube.stl
 comb_color_sphere - 0,000 seconds
-  SKIPPED
-comb_transform_csg_scene - 0,000 seconds
-  SKIPPED
-comb_color_translate_union - 0,000 seconds
-  SKIPPED
-comb_rotate_difference_cylinder - 0,000 seconds
-  SKIPPED
-comb_scale_union_multi - 0,000 seconds
-  SKIPPED
-comb_complex_scene - 0,000 seconds
-  SKIPPED
-comb_nested_transforms_csg - 0,000 seconds
-  SKIPPED
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+comb_transform_csg_scene - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+comb_color_translate_union - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+comb_rotate_difference_cylinder - 0,089 seconds
+  comb_rotate_difference_cylinder.scad -> ./benchmark/build/benchmark-stl/combined_operations_comb_rotate_difference_cylinder.stl
+comb_scale_union_multi - 0,003 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+comb_complex_scene - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+comb_nested_transforms_csg - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
 var_simple_cube_size - 0,000 seconds
-  SKIPPED
+  var_simple_cube_size.scad -> ./benchmark/build/benchmark-stl/variables_expressions_var_simple_cube_size.stl
 var_math_expression - 0,000 seconds
-  SKIPPED
-var_trig_functions - 0,000 seconds
-  SKIPPED
-var_multiple_variables_scene - 0,000 seconds
-  SKIPPED
-var_computed_positions - 0,000 seconds
-  SKIPPED
-edge_comments_in_code - 0,000 seconds
-  SKIPPED
-edge_nested_expressions - 0,000 seconds
-  SKIPPED
-edge_variable_references - 0,000 seconds
-  SKIPPED
-edge_multiline_code - 0,000 seconds
-  SKIPPED
-edge_named_parameters - 0,000 seconds
-  SKIPPED
-sun - 0,000 seconds
-  SKIPPED
-controll_rose - 0,000 seconds
-  SKIPPED]]></system-out>
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+var_trig_functions - 0,001 seconds
+  var_trig_functions.scad -> ./benchmark/build/benchmark-stl/variables_expressions_var_trig_functions.stl
+var_multiple_variables_scene - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+var_computed_positions - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+edge_comments_in_code - 0,001 seconds
+  COMPUTE_ERROR: CGAL ERROR: assertion violation!
+Expr: check_protocoll == 0
+File: /usr/include/CGAL/Polyhedron_incremental_builder_3.h
+Line: 196
+edge_nested_expressions - 0,001 seconds
+  edge_nested_expressions.scad -> ./benchmark/build/benchmark-stl/edge_cases_edge_nested_expressions.stl
+edge_variable_references - 0,001 seconds
+  edge_variable_references.scad -> ./benchmark/build/benchmark-stl/edge_cases_edge_variable_references.stl
+edge_multiline_code - 0,007 seconds
+  edge_multiline_code.scad -> ./benchmark/build/benchmark-stl/edge_cases_edge_multiline_code.stl
+edge_named_parameters - 0,004 seconds
+  edge_named_parameters.scad -> ./benchmark/build/benchmark-stl/edge_cases_edge_named_parameters.stl
+sun - 0,001 seconds
+  sun.scad -> ./benchmark/build/benchmark-stl/custom_sun.stl
+controll_rose - 0,025 seconds
+  controll_rose.scad -> ./benchmark/build/benchmark-stl/custom_controll_rose.stl]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

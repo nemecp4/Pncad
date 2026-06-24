@@ -83,7 +83,7 @@ object TimingSummaryFormatter {
                                 result.testCase.category,
                                 result.testCase.name
                             )
-                            "${result.testCase.name}.scad -> ./benchmark/build/benchmark-stl/$stlFilename"
+                            "${result.testCase.name}.scad -> ./benchmark/build/benchmark-stl/${result.engineName}/$stlFilename"
                         }
                         ResultStatus.TIMEOUT -> "TIMEOUT"
                         ResultStatus.SKIPPED -> "SKIPPED"

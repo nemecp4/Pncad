@@ -18,6 +18,15 @@ tasks.withType<Test> {
     testLogging {
         showStandardStreams = true
     }
+    // Forward java.library.path to the test JVM (for CGAL native lib)
+    systemProperty("java.library.path",
+        System.getProperty("java.library.path") ?: ""
+    )
+    // Also support a custom property for explicit override
+    val cgalLibPath = project.findProperty("cgal.library.path") as String?
+    if (cgalLibPath != null) {
+        jvmArgs("-Djava.library.path=$cgalLibPath")
+    }
 }
 
 // Exclude benchmark from default check lifecycle task
