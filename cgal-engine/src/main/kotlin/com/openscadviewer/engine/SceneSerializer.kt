@@ -28,7 +28,11 @@ object SceneSerializer {
      * - Transforms inside LinearExtrude → moved outside: Rotate(LinearExtrude(primitive))
      */
     private fun preprocessForCgal(node: SceneNode): SceneNode {
+        val MAX_SEGMENTS = 48
         return when (node) {
+            is SceneNode.Sphere -> SceneNode.Sphere(node.radius, node.segments.coerceAtMost(MAX_SEGMENTS))
+            is SceneNode.Cylinder -> SceneNode.Cylinder(node.height, node.radius1, node.radius2, node.center, node.segments.coerceAtMost(MAX_SEGMENTS))
+            is SceneNode.Circle -> SceneNode.Circle(node.radius, node.segments.coerceAtMost(MAX_SEGMENTS))
             is SceneNode.LinearExtrude -> {
                 val processedChild = preprocessForCgal(node.child)
                 expandLinearExtrude(node.height, processedChild)
@@ -87,7 +91,7 @@ object SceneSerializer {
             is SceneNode.Sphere -> {
                 obj.put("type", "sphere")
                 obj.put("radius", node.radius)
-                obj.put("segments", node.segments.coerceAtMost(48))
+                obj.put("segments", node.segments)
             }
             is SceneNode.Cylinder -> {
                 obj.put("type", "cylinder")
@@ -95,12 +99,12 @@ object SceneSerializer {
                 obj.put("radius1", node.radius1)
                 obj.put("radius2", node.radius2)
                 obj.put("center", node.center)
-                obj.put("segments", node.segments.coerceAtMost(48))
+                obj.put("segments", node.segments)
             }
             is SceneNode.Circle -> {
                 obj.put("type", "circle")
                 obj.put("radius", node.radius)
-                obj.put("segments", node.segments.coerceAtMost(48))
+                obj.put("segments", node.segments)
             }
             is SceneNode.Square -> {
                 obj.put("type", "square")
