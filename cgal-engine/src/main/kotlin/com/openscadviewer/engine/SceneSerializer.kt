@@ -79,7 +79,7 @@ object SceneSerializer {
             is SceneNode.Sphere -> {
                 obj.put("type", "sphere")
                 obj.put("radius", node.radius)
-                obj.put("segments", node.segments.coerceAtMost(128))
+                obj.put("segments", node.segments.coerceAtMost(64))
             }
             is SceneNode.Cylinder -> {
                 obj.put("type", "cylinder")
@@ -87,12 +87,12 @@ object SceneSerializer {
                 obj.put("radius1", node.radius1)
                 obj.put("radius2", node.radius2)
                 obj.put("center", node.center)
-                obj.put("segments", node.segments.coerceAtMost(128))
+                obj.put("segments", node.segments.coerceAtMost(64))
             }
             is SceneNode.Circle -> {
                 obj.put("type", "circle")
                 obj.put("radius", node.radius)
-                obj.put("segments", node.segments.coerceAtMost(128))
+                obj.put("segments", node.segments.coerceAtMost(64))
             }
             is SceneNode.Square -> {
                 obj.put("type", "square")

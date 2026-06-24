@@ -1403,8 +1403,11 @@ class OpenSCADParser {
             center = (params["center"] ?: 0.0) != 0.0
         }
 
+        // Use $fn parameter if specified, otherwise fall back to global $fn
+        val segments = params["\$fn"]?.toInt()?.coerceIn(3, 360) ?: getSegments()
+
         skipSemicolon()
-        return SceneNode.Cylinder(h, r1, r2, center, getSegments())
+        return SceneNode.Cylinder(h, r1, r2, center, segments)
     }
 
     private fun parseTransform(type: String): SceneNode? {
