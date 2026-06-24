@@ -284,6 +284,11 @@ static Nef_polyhedron build_cylinder(double height, double r1, double r2,
 // LinearExtrude: Extrude a 2D profile along Z axis
 // ---------------------------------------------------------------------------
 
+// Forward declarations for transform helpers (defined later in this file)
+static Aff_transformation make_translation(double tx, double ty, double tz);
+static Aff_transformation make_scale(double sx, double sy, double sz);
+static Aff_transformation make_rotation(double rx, double ry, double rz);
+
 static Nef_polyhedron build_linear_extrude_circle(double height, double radius, int segments) {
     // A circle extruded along Z is essentially a cylinder with equal radii
     if (height <= 0 || radius <= 0) {
@@ -404,6 +409,67 @@ static Nef_polyhedron build_linear_extrude(double height, const json& child_node
             }
         }
         return build_linear_extrude_polygon(height, points);
+    } else if (child_type == "union" || child_type == "group") {
+        // Extrude each child and union the results
+        if (!child_node.contains("children") || !child_node["children"].is_array()) {
+            return Nef_polyhedron();
+        }
+        Nef_polyhedron result;
+        bool first = true;
+        for (const auto& grandchild : child_node["children"]) {
+            if (is_cancelled(cancel_flag)) return Nef_polyhedron();
+            Nef_polyhedron extruded = build_linear_extrude(height, grandchild, cancel_flag);
+            if (!extruded.is_empty()) {
+                if (first) {
+                    result = std::move(extruded);
+                    first = false;
+                } else {
+                    result += extruded;
+                }
+            }
+        }
+        return result;
+    } else if (child_type == "translate") {
+        // Extrude the child, then apply translation
+        double tx = child_node.value("x", 0.0);
+        double ty = child_node.value("y", 0.0);
+        double tz = child_node.value("z", 0.0);
+        if (child_node.contains("child")) {
+            Nef_polyhedron extruded = build_linear_extrude(height, child_node["child"], cancel_flag);
+            if (!extruded.is_empty()) {
+                Aff_transformation transform = make_translation(tx, ty, tz);
+                extruded.transform(transform);
+            }
+            return extruded;
+        }
+        return Nef_polyhedron();
+    } else if (child_type == "rotate") {
+        // Extrude the child, then apply rotation
+        double rx = child_node.value("x", 0.0);
+        double ry = child_node.value("y", 0.0);
+        double rz = child_node.value("z", 0.0);
+        if (child_node.contains("child")) {
+            Nef_polyhedron extruded = build_linear_extrude(height, child_node["child"], cancel_flag);
+            if (!extruded.is_empty()) {
+                Aff_transformation transform = make_rotation(rx, ry, rz);
+                extruded.transform(transform);
+            }
+            return extruded;
+        }
+        return Nef_polyhedron();
+    } else if (child_type == "scale") {
+        double sx = child_node.value("x", 1.0);
+        double sy = child_node.value("y", 1.0);
+        double sz = child_node.value("z", 1.0);
+        if (child_node.contains("child")) {
+            Nef_polyhedron extruded = build_linear_extrude(height, child_node["child"], cancel_flag);
+            if (!extruded.is_empty()) {
+                Aff_transformation transform = make_scale(sx, sy, sz);
+                extruded.transform(transform);
+            }
+            return extruded;
+        }
+        return Nef_polyhedron();
     }
 
     // Unsupported child type for linear extrude
