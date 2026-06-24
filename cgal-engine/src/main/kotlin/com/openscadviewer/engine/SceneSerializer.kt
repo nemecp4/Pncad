@@ -10,7 +10,60 @@ import org.json.JSONObject
  */
 object SceneSerializer {
     fun toJson(node: SceneNode): String {
-        return nodeToJson(node).toString()
+        val preprocessed = preprocessForCgal(node)
+        return nodeToJson(preprocessed).toString()
+    }
+
+    /**
+     * Pre-process the scene tree to handle cases CGAL can't process directly:
+     * - LinearExtrude(Union/Group/Difference([children])) → Union([LinearExtrude(child1), ...])
+     * - Transforms inside LinearExtrude → moved outside: Rotate(LinearExtrude(primitive))
+     */
+    private fun preprocessForCgal(node: SceneNode): SceneNode {
+        return when (node) {
+            is SceneNode.LinearExtrude -> {
+                val processedChild = preprocessForCgal(node.child)
+                expandLinearExtrude(node.height, processedChild)
+            }
+            is SceneNode.Union -> SceneNode.Union(node.children.map { preprocessForCgal(it) })
+            is SceneNode.Difference -> SceneNode.Difference(node.children.map { preprocessForCgal(it) })
+            is SceneNode.Intersection -> SceneNode.Intersection(node.children.map { preprocessForCgal(it) })
+            is SceneNode.Group -> SceneNode.Group(node.children.map { preprocessForCgal(it) })
+            is SceneNode.Translate -> SceneNode.Translate(node.x, node.y, node.z, preprocessForCgal(node.child))
+            is SceneNode.Rotate -> SceneNode.Rotate(node.x, node.y, node.z, preprocessForCgal(node.child))
+            is SceneNode.Scale -> SceneNode.Scale(node.x, node.y, node.z, preprocessForCgal(node.child))
+            is SceneNode.Color -> SceneNode.Color(node.r, node.g, node.b, node.a, preprocessForCgal(node.child))
+            else -> node
+        }
+    }
+
+    /**
+     * Expand a linear_extrude with a compound child into individual extrusions.
+     * LinearExtrude(Union([A, B, C])) → Union([LinearExtrude(A), LinearExtrude(B), LinearExtrude(C)])
+     * LinearExtrude(Rotate(z, Polygon)) → Rotate(z, LinearExtrude(Polygon))
+     */
+    private fun expandLinearExtrude(height: Double, child: SceneNode): SceneNode {
+        return when (child) {
+            is SceneNode.Circle, is SceneNode.Square, is SceneNode.Polygon ->
+                SceneNode.LinearExtrude(height, child)
+            is SceneNode.Union ->
+                SceneNode.Union(child.children.map { expandLinearExtrude(height, it) })
+            is SceneNode.Group ->
+                SceneNode.Union(child.children.map { expandLinearExtrude(height, it) })
+            is SceneNode.Difference ->
+                SceneNode.Difference(child.children.map { expandLinearExtrude(height, it) })
+            is SceneNode.Intersection ->
+                SceneNode.Intersection(child.children.map { expandLinearExtrude(height, it) })
+            is SceneNode.Translate ->
+                SceneNode.Translate(child.x, child.y, child.z, expandLinearExtrude(height, child.child))
+            is SceneNode.Rotate ->
+                SceneNode.Rotate(child.x, child.y, child.z, expandLinearExtrude(height, child.child))
+            is SceneNode.Scale ->
+                SceneNode.Scale(child.x, child.y, child.z, expandLinearExtrude(height, child.child))
+            is SceneNode.Color ->
+                SceneNode.Color(child.r, child.g, child.b, child.a, expandLinearExtrude(height, child.child))
+            else -> SceneNode.LinearExtrude(height, child)
+        }
     }
 
     private fun nodeToJson(node: SceneNode): JSONObject {
@@ -26,7 +79,7 @@ object SceneSerializer {
             is SceneNode.Sphere -> {
                 obj.put("type", "sphere")
                 obj.put("radius", node.radius)
-                obj.put("segments", node.segments)
+                obj.put("segments", node.segments.coerceAtMost(128))
             }
             is SceneNode.Cylinder -> {
                 obj.put("type", "cylinder")
@@ -34,12 +87,12 @@ object SceneSerializer {
                 obj.put("radius1", node.radius1)
                 obj.put("radius2", node.radius2)
                 obj.put("center", node.center)
-                obj.put("segments", node.segments)
+                obj.put("segments", node.segments.coerceAtMost(128))
             }
             is SceneNode.Circle -> {
                 obj.put("type", "circle")
                 obj.put("radius", node.radius)
-                obj.put("segments", node.segments)
+                obj.put("segments", node.segments.coerceAtMost(128))
             }
             is SceneNode.Square -> {
                 obj.put("type", "square")

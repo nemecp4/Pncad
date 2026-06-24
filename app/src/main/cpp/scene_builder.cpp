@@ -416,6 +416,7 @@ static Nef_polyhedron build_linear_extrude(double height, const json& child_node
         }
         Nef_polyhedron result;
         bool first = true;
+        int child_idx = 0;
         for (const auto& grandchild : child_node["children"]) {
             if (is_cancelled(cancel_flag)) return Nef_polyhedron();
             Nef_polyhedron extruded = build_linear_extrude(height, grandchild, cancel_flag);
@@ -427,6 +428,10 @@ static Nef_polyhedron build_linear_extrude(double height, const json& child_node
                     result += extruded;
                 }
             }
+            child_idx++;
+        }
+        if (first) {
+            fprintf(stderr, "CGAL linear_extrude union: all children produced empty results\n");
         }
         return result;
     } else if (child_type == "translate") {
