@@ -394,7 +394,43 @@ class OpenSCADParser {
             return ScadValue.Str(parseStringLiteral())
         }
 
-        // Otherwise parse as numeric expression (which may return via ternary etc.)
+        // Try to resolve identifier directly for string/vec values
+        val savedPos = pos
+        val id = parseIdentifier()
+        if (id != null) {
+            skipWhitespaceAndComments()
+            // Check for indexing
+            if (pos < input.length && input[pos] == '[') {
+                val varVal = vars[id]
+                pos++ // skip [
+                val index = parseExpression().toInt()
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == ']') pos++
+                return when (varVal) {
+                    is ScadValue.Vec -> {
+                        if (index in varVal.value.indices) varVal.value[index]
+                        else ScadValue.Undef
+                    }
+                    is ScadValue.Str -> {
+                        if (index in varVal.value.indices)
+                            ScadValue.Str(varVal.value[index].toString())
+                        else ScadValue.Undef
+                    }
+                    else -> ScadValue.Undef
+                }
+            }
+            // Variable that's already a string or vec
+            val varVal = vars[id]
+            if (varVal is ScadValue.Str || varVal is ScadValue.Vec) {
+                return varVal
+            }
+            // Restore and parse as expression
+            pos = savedPos
+        } else {
+            pos = savedPos
+        }
+
+        // Otherwise parse as expression (which may return via ternary etc.)
         val result = parseExpression()
         return ScadValue.Num(result)
     }
@@ -443,17 +479,32 @@ class OpenSCADParser {
     // --- Numeric expression evaluation ---
 
     fun parseExpression(): Double {
+        return parseExpressionScad().toDouble()
+    }
+
+    /**
+     * Full ScadValue-aware expression parser that handles string comparisons,
+     * ternary operators, and all numeric operations correctly.
+     */
+    private fun parseExpressionScad(): ScadValue {
         skipWhitespaceAndComments()
-        var result = parseComparison()
+        val result = parseComparisonScad()
 
         // Ternary operator — handle iteratively for nested ternaries
         skipWhitespaceAndComments()
         if (pos < input.length && input[pos] == '?') {
             pos++
             skipWhitespaceAndComments()
-            if (result != 0.0) {
+            val condTrue = when (result) {
+                is ScadValue.Num -> result.value != 0.0
+                is ScadValue.Bool -> result.value
+                is ScadValue.Str -> result.value.isNotEmpty()
+                is ScadValue.Vec -> result.value.isNotEmpty()
+                is ScadValue.Undef -> false
+            }
+            if (condTrue) {
                 // Condition is true: evaluate true branch, skip false branch
-                val trueVal = parseExpression()
+                val trueVal = parseExpressionScad()
                 skipWhitespaceAndComments()
                 if (pos < input.length && input[pos] == ':') pos++
                 skipWhitespaceAndComments()
@@ -465,7 +516,7 @@ class OpenSCADParser {
                 skipWhitespaceAndComments()
                 if (pos < input.length && input[pos] == ':') pos++
                 skipWhitespaceAndComments()
-                return parseExpression() // evaluate false branch (tail call for chain)
+                return parseExpressionScad() // evaluate false branch (tail call for chain)
             }
         }
 
@@ -503,6 +554,313 @@ class OpenSCADParser {
                 else -> pos++
             }
         }
+    }
+
+    /**
+     * ScadValue-aware comparison that correctly handles string == string.
+     */
+    private fun parseComparisonScad(): ScadValue {
+        val left = parseFactorScad()
+
+        skipWhitespaceAndComments()
+        if (pos >= input.length) return left
+
+        // Check for comparison operators
+        when {
+            pos + 1 < input.length && input[pos] == '=' && input[pos + 1] == '=' -> {
+                pos += 2
+                val right = parseFactorScad()
+                return ScadValue.Bool(scadValuesEqual(left, right))
+            }
+            pos + 1 < input.length && input[pos] == '!' && input[pos + 1] == '=' -> {
+                pos += 2
+                val right = parseFactorScad()
+                return ScadValue.Bool(!scadValuesEqual(left, right))
+            }
+            pos + 1 < input.length && input[pos] == '<' && input[pos + 1] == '=' -> {
+                pos += 2
+                val right = parseFactorScad()
+                return ScadValue.Bool(left.toDouble() <= right.toDouble())
+            }
+            pos + 1 < input.length && input[pos] == '>' && input[pos + 1] == '=' -> {
+                pos += 2
+                val right = parseFactorScad()
+                return ScadValue.Bool(left.toDouble() >= right.toDouble())
+            }
+            input[pos] == '<' && !(pos + 1 < input.length && input[pos + 1] == '=') -> {
+                pos++
+                val right = parseFactorScad()
+                return ScadValue.Bool(left.toDouble() < right.toDouble())
+            }
+            input[pos] == '>' && !(pos + 1 < input.length && input[pos + 1] == '=') -> {
+                pos++
+                val right = parseFactorScad()
+                return ScadValue.Bool(left.toDouble() > right.toDouble())
+            }
+        }
+
+        // No comparison operator found, check for arithmetic continuing from left
+        // We need to handle the case where left is numeric and we have +, -, *, /
+        return applyArithmeticScad(left)
+    }
+
+    /**
+     * Apply arithmetic operations (+, -, *, /) to a ScadValue, continuing the parse.
+     * This handles the case where the comparison layer sees no comparator but arithmetic follows.
+     */
+    private fun applyArithmeticScad(initial: ScadValue): ScadValue {
+        var result = initial.toDouble()
+
+        // Handle multiplication/division that may follow
+        while (pos < input.length) {
+            skipWhitespaceAndComments()
+            if (pos >= input.length) break
+            when (input[pos]) {
+                '*' -> { pos++; result *= parseFactorDouble() }
+                '/' -> { pos++; val d = parseFactorDouble(); if (d != 0.0) result /= d }
+                '%' -> { pos++; val d = parseFactorDouble(); if (d != 0.0) result %= d }
+                else -> break
+            }
+        }
+
+        // Handle addition/subtraction
+        while (pos < input.length) {
+            skipWhitespaceAndComments()
+            if (pos >= input.length) break
+            when (input[pos]) {
+                '+' -> { pos++; result += parseTerm() }
+                '-' -> { pos++; result -= parseTerm() }
+                else -> break
+            }
+        }
+
+        // After arithmetic, check for comparison operators
+        skipWhitespaceAndComments()
+        if (pos < input.length) {
+            when {
+                pos + 1 < input.length && input[pos] == '=' && input[pos + 1] == '=' -> {
+                    pos += 2
+                    val right = parseFactorScad()
+                    val rightVal = applyArithmeticScad(right).toDouble()
+                    return ScadValue.Bool(result == rightVal)
+                }
+                pos + 1 < input.length && input[pos] == '!' && input[pos + 1] == '=' -> {
+                    pos += 2
+                    val right = parseFactorScad()
+                    val rightVal = applyArithmeticScad(right).toDouble()
+                    return ScadValue.Bool(result != rightVal)
+                }
+                pos + 1 < input.length && input[pos] == '<' && input[pos + 1] == '=' -> {
+                    pos += 2
+                    val rightVal = parseAddSub()
+                    return ScadValue.Bool(result <= rightVal)
+                }
+                pos + 1 < input.length && input[pos] == '>' && input[pos + 1] == '=' -> {
+                    pos += 2
+                    val rightVal = parseAddSub()
+                    return ScadValue.Bool(result >= rightVal)
+                }
+                input[pos] == '<' && !(pos + 1 < input.length && input[pos + 1] == '=') -> {
+                    pos++
+                    val rightVal = parseAddSub()
+                    return ScadValue.Bool(result < rightVal)
+                }
+                input[pos] == '>' && !(pos + 1 < input.length && input[pos + 1] == '=') -> {
+                    pos++
+                    val rightVal = parseAddSub()
+                    return ScadValue.Bool(result > rightVal)
+                }
+            }
+        }
+
+        if (initial is ScadValue.Str) return initial
+        return ScadValue.Num(result)
+    }
+
+    private fun scadValuesEqual(a: ScadValue, b: ScadValue): Boolean {
+        return when {
+            a is ScadValue.Str && b is ScadValue.Str -> a.value == b.value
+            a is ScadValue.Num && b is ScadValue.Num -> a.value == b.value
+            a is ScadValue.Bool && b is ScadValue.Bool -> a.value == b.value
+            a is ScadValue.Undef && b is ScadValue.Undef -> true
+            // Cross-type: compare as doubles for numeric types
+            a is ScadValue.Num || a is ScadValue.Bool -> {
+                if (b is ScadValue.Num || b is ScadValue.Bool) a.toDouble() == b.toDouble()
+                else false
+            }
+            else -> false
+        }
+    }
+
+    /**
+     * Parse a single factor as ScadValue — preserves strings and handles identifiers
+     * with their ScadValue type intact (important for string comparisons).
+     */
+    private fun parseFactorScad(): ScadValue {
+        skipWhitespaceAndComments()
+        if (pos >= input.length) return ScadValue.Num(0.0)
+
+        // Unary minus
+        if (input[pos] == '-') {
+            pos++
+            return ScadValue.Num(-parseFactorDouble())
+        }
+
+        // Unary not
+        if (input[pos] == '!') {
+            pos++
+            val v = parseFactorDouble()
+            return ScadValue.Bool(v == 0.0)
+        }
+
+        // Parenthesized expression
+        if (input[pos] == '(') {
+            pos++
+            val result = parseExpressionScad()
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ')') pos++
+            return result
+        }
+
+        // Number
+        if (input[pos].isDigit() || input[pos] == '.') {
+            return ScadValue.Num(parseNumber())
+        }
+
+        // String literal
+        if (input[pos] == '"') {
+            return ScadValue.Str(parseStringLiteral())
+        }
+
+        // Variable or function — resolve to ScadValue
+        val id = parseIdentifier()
+        if (id != null) {
+            return resolveIdentifierScad(id)
+        }
+
+        return ScadValue.Num(0.0)
+    }
+
+    /**
+     * Parse factor returning Double — used by arithmetic operations.
+     */
+    private fun parseFactorDouble(): Double {
+        return parseFactorScad().toDouble()
+    }
+
+    /**
+     * Resolve an identifier to its ScadValue — preserves string type for comparisons.
+     */
+    private fun resolveIdentifierScad(id: String): ScadValue {
+        when (id) {
+            "true" -> return ScadValue.Bool(true)
+            "false" -> return ScadValue.Bool(false)
+            "PI" -> return ScadValue.Num(PI)
+            "sin" -> return ScadValue.Num(sin(parseFunctionArg() * PI / 180.0))
+            "cos" -> return ScadValue.Num(cos(parseFunctionArg() * PI / 180.0))
+            "abs" -> return ScadValue.Num(kotlin.math.abs(parseFunctionArg()))
+            "sqrt" -> return ScadValue.Num(kotlin.math.sqrt(parseFunctionArg()))
+            "floor" -> return ScadValue.Num(kotlin.math.floor(parseFunctionArg()))
+            "ceil" -> return ScadValue.Num(kotlin.math.ceil(parseFunctionArg()))
+            "round" -> return ScadValue.Num(kotlin.math.round(parseFunctionArg()).toDouble())
+            "pow" -> {
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == '(') {
+                    pos++
+                    val base = parseExpression()
+                    skipWhitespaceAndComments()
+                    if (pos < input.length && input[pos] == ',') pos++
+                    val exp = parseExpression()
+                    skipWhitespaceAndComments()
+                    if (pos < input.length && input[pos] == ')') pos++
+                    return ScadValue.Num(Math.pow(base, exp))
+                }
+                return ScadValue.Num(0.0)
+            }
+            "max" -> return ScadValue.Num(parseVarArgFunc { a, b -> maxOf(a, b) })
+            "min" -> return ScadValue.Num(parseVarArgFunc { a, b -> minOf(a, b) })
+            "len" -> {
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == '(') {
+                    pos++
+                    skipWhitespaceAndComments()
+                    val argVal = parseExpressionValueInner()
+                    skipWhitespaceAndComments()
+                    if (pos < input.length && input[pos] == ')') pos++
+                    return when (argVal) {
+                        is ScadValue.Vec -> ScadValue.Num(argVal.value.size.toDouble())
+                        is ScadValue.Str -> ScadValue.Num(argVal.value.length.toDouble())
+                        else -> ScadValue.Num(0.0)
+                    }
+                }
+                return ScadValue.Num(0.0)
+            }
+            "str" -> {
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == '(') {
+                    pos++
+                    skipWhitespaceAndComments()
+                    val sb = StringBuilder()
+                    while (pos < input.length && input[pos] != ')') {
+                        val argVal = parseExpressionValueInner()
+                        when (argVal) {
+                            is ScadValue.Str -> sb.append(argVal.value)
+                            is ScadValue.Num -> sb.append(argVal.value)
+                            else -> sb.append("")
+                        }
+                        skipWhitespaceAndComments()
+                        if (pos < input.length && input[pos] == ',') pos++
+                        skipWhitespaceAndComments()
+                    }
+                    if (pos < input.length && input[pos] == ')') pos++
+                    return ScadValue.Str(sb.toString())
+                }
+                return ScadValue.Str("")
+            }
+        }
+
+        // Check user-defined functions — return ScadValue
+        if (functions.containsKey(id)) {
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == '(') {
+                return callFunctionScad(id)
+            }
+        }
+
+        // Check if this is an unknown function call — consume args
+        skipWhitespaceAndComments()
+        if (pos < input.length && input[pos] == '(') {
+            // Not a known function - check if it's really a function call
+            val varVal = vars[id]
+            if (varVal == null || varVal is ScadValue.Undef) {
+                pos++
+                skipToCloseParen()
+                return ScadValue.Num(0.0)
+            }
+        }
+
+        // Array/string indexing
+        if (pos < input.length && input[pos] == '[') {
+            val varVal = vars[id]
+            pos++ // skip [
+            val index = parseExpression().toInt()
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ']') pos++
+            return when (varVal) {
+                is ScadValue.Vec -> {
+                    if (index in varVal.value.indices) varVal.value[index]
+                    else ScadValue.Undef
+                }
+                is ScadValue.Str -> {
+                    if (index in varVal.value.indices) ScadValue.Str(varVal.value[index].toString())
+                    else ScadValue.Undef
+                }
+                else -> ScadValue.Undef
+            }
+        }
+
+        // Variable lookup — return full ScadValue
+        return vars[id] ?: ScadValue.Num(0.0)
     }
 
     private fun parseComparison(): Double {
@@ -784,9 +1142,16 @@ class OpenSCADParser {
      * Call a user-defined function.
      */
     private fun callFunction(name: String): Double {
-        val funcDef = functions[name] ?: return 0.0
+        return callFunctionScad(name).toDouble()
+    }
+
+    /**
+     * Call a user-defined function returning ScadValue.
+     */
+    private fun callFunctionScad(name: String): ScadValue {
+        val funcDef = functions[name] ?: return ScadValue.Num(0.0)
         skipWhitespaceAndComments()
-        if (pos >= input.length || input[pos] != '(') return 0.0
+        if (pos >= input.length || input[pos] != '(') return ScadValue.Num(0.0)
         pos++ // skip (
 
         // Parse arguments
@@ -801,7 +1166,7 @@ class OpenSCADParser {
         if (pos < input.length && input[pos] == ')') pos++
 
         // Evaluate the function body with params bound
-        return evalFunctionBody(funcDef, args)
+        return evalFunctionBodyScad(funcDef, args)
     }
 
     private fun parseExpressionValueForFuncArg(): ScadValue {
@@ -809,10 +1174,50 @@ class OpenSCADParser {
         if (pos >= input.length) return ScadValue.Num(0.0)
         if (input[pos] == '"') return ScadValue.Str(parseStringLiteral())
         if (input[pos] == '[') return parseArrayValue()
+
+        // Check for identifier that might resolve to a ScadValue (string, vec, etc.)
+        val savedPos = pos
+        val id = parseIdentifier()
+        if (id != null) {
+            skipWhitespaceAndComments()
+            // Check for indexing - returns the element's ScadValue
+            if (pos < input.length && input[pos] == '[') {
+                val varVal = vars[id]
+                pos++ // skip [
+                val index = parseExpression().toInt()
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == ']') pos++
+                return when (varVal) {
+                    is ScadValue.Vec -> {
+                        if (index in varVal.value.indices) varVal.value[index]
+                        else ScadValue.Undef
+                    }
+                    is ScadValue.Str -> {
+                        if (index in varVal.value.indices)
+                            ScadValue.Str(varVal.value[index].toString())
+                        else ScadValue.Undef
+                    }
+                    else -> ScadValue.Undef
+                }
+            }
+            // Variable that's a string or vec - return as-is
+            val varVal = vars[id]
+            if (varVal is ScadValue.Str || varVal is ScadValue.Vec) {
+                return varVal
+            }
+            // Otherwise restore and parse as numeric expression
+            pos = savedPos
+        } else {
+            pos = savedPos
+        }
         return ScadValue.Num(parseExpression())
     }
 
     private fun evalFunctionBody(funcDef: FunctionDefinition, args: List<ScadValue>): Double {
+        return evalFunctionBodyScad(funcDef, args).toDouble()
+    }
+
+    private fun evalFunctionBodyScad(funcDef: FunctionDefinition, args: List<ScadValue>): ScadValue {
         checkTimeout()
         val subParser = OpenSCADParser()
         subParser.parseStartTime = this.parseStartTime
@@ -842,7 +1247,7 @@ class OpenSCADParser {
 
         subParser.input = funcDef.body
         subParser.pos = 0
-        return subParser.parseExpression()
+        return subParser.parseExpressionScad()
     }
 
     /**
@@ -864,7 +1269,7 @@ class OpenSCADParser {
         }
         if (pos < input.length && input[pos] == ')') pos++
 
-        return ScadValue.Num(evalFunctionBody(funcDef, args))
+        return evalFunctionBodyScad(funcDef, args)
     }
 
     private fun parseVarArgFunc(op: (Double, Double) -> Double): Double {
@@ -1193,20 +1598,55 @@ class OpenSCADParser {
 
     /**
      * Parse text() call — returns a placeholder square approximating character bounding box.
+     * Extracts text content and size parameters to compute proper width.
      */
     private fun parseText(): SceneNode {
         skipWhitespaceAndComments()
+        var textContent = ""
         var size = 5.5
         if (pos < input.length && input[pos] == '(') {
             pos++; skipWhitespaceAndComments()
-            // Parse params: first positional is text content, then named params
+            // Extract params content for parsing
             val paramsStr = extractParenContent()
-            val params = parseParamString(paramsStr)
-            size = params["size"] ?: 5.5
+            val parts = splitParams(paramsStr)
+            for (part in parts) {
+                val trimmed = part.trim()
+                val eqIdx = trimmed.indexOf('=')
+                if (eqIdx > 0) {
+                    val name = trimmed.substring(0, eqIdx).trim()
+                    val valueStr = trimmed.substring(eqIdx + 1).trim()
+                    when (name) {
+                        "size" -> size = evaluateParamValue(valueStr)
+                        // font, halign, valign — skip
+                    }
+                } else {
+                    // First positional parameter is text content
+                    if (textContent.isEmpty()) {
+                        if (trimmed.startsWith("\"")) {
+                            textContent = trimmed.removeSurrounding("\"")
+                        } else {
+                            // It's a variable reference — try to resolve it
+                            val subParser = OpenSCADParser()
+                            subParser.parseStartTime = parseStartTime
+                            subParser.vars.putAll(vars)
+                            subParser.functions.putAll(functions)
+                            subParser.input = trimmed
+                            subParser.pos = 0
+                            val resolved = subParser.parseExpressionValueInner()
+                            if (resolved is ScadValue.Str) {
+                                textContent = resolved.value
+                            }
+                        }
+                    }
+                }
+            }
         }
         skipSemicolon()
-        // Placeholder: single character bounding box
-        return SceneNode.Square(size * 0.6, size, false)
+        // Compute width based on text content
+        val charCount = if (textContent.isNotEmpty()) textContent.length else 1
+        val width = charCount.toDouble() * size * 0.7
+        val height = size
+        return SceneNode.Square(width, height, true)
     }
 
     // --- Module and For Loop support ---
@@ -1565,11 +2005,27 @@ class OpenSCADParser {
             when (input[pos]) {
                 '(', '{', '[' -> depth++
                 ')', '}', ']' -> {
-                    if (depth > 0) depth--
+                    if (depth > 0) {
+                        depth--
+                        // If a '}' brings us back to depth 0, the block-statement is done
+                        if (depth == 0 && input[pos] == '}') {
+                            pos++
+                            return
+                        }
+                    }
                     else { pos++; return }
                 }
                 ';' -> {
                     if (depth == 0) { pos++; return }
+                }
+                '"' -> {
+                    // Skip string literals to avoid counting brackets inside strings
+                    pos++
+                    while (pos < input.length && input[pos] != '"') {
+                        if (input[pos] == '\\') pos++
+                        pos++
+                    }
+                    // pos now at closing " or end, fall through to pos++ below
                 }
             }
             pos++

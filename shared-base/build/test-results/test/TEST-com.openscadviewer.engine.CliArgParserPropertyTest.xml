@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.openscadviewer.engine.CliArgParserPropertyTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-06-24T18:10:28.317Z" hostname="beebubu" time="0.385">
+  <properties/>
+  <testcase name="timeoutAboveRangeIsRejected" classname="com.openscadviewer.engine.CliArgParserPropertyTest" time="0.226"/>
+  <testcase name="nonIntegerTimeoutIsRejected" classname="com.openscadviewer.engine.CliArgParserPropertyTest" time="0.066"/>
+  <testcase name="emptyArgsAlwaysFails" classname="com.openscadviewer.engine.CliArgParserPropertyTest" time="0.015"/>
+  <testcase name="zeroPositionalArgsAlwaysFails" classname="com.openscadviewer.engine.CliArgParserPropertyTest" time="0.013"/>
+  <testcase name="validTimeoutIsAccepted" classname="com.openscadviewer.engine.CliArgParserPropertyTest" time="0.01"/>
+  <testcase name="timeoutBelowRangeIsRejected" classname="com.openscadviewer.engine.CliArgParserPropertyTest" time="0.01"/>
+  <testcase name="onePositionalArgAlwaysFails" classname="com.openscadviewer.engine.CliArgParserPropertyTest" time="0.027"/>
+  <system-out><![CDATA[timestamp = 2026-06-24T20:10:28.555037917, [property-2-timeout-flag-parsing] CliArgParserPropertyTest:timeoutAboveRangeIsRejected = 
+                              |-----------------------jqwik-----------------------
+tries = 100                   | # of calls to property
+checks = 100                  | # of not rejected calls
+generation = RANDOMIZED       | parameters are randomly generated
+after-failure = SAMPLE_FIRST  | try previously failed sample, then previous seed
+when-fixed-seed = ALLOW       | fixing the random seed is allowed
+edge-cases#mode = MIXIN       | edge cases are mixed in
+edge-cases#total = 4          | # of all combined edge cases
+edge-cases#tried = 3          | # of edge cases tried in current run
+seed = 2716605116836082776    | random seed to reproduce generated values
+
+
+timestamp = 2026-06-24T20:10:28.626380484, [property-2-timeout-flag-parsing] CliArgParserPropertyTest:nonIntegerTimeoutIsRejected = 
+                              |-----------------------jqwik-----------------------
+tries = 100                   | # of calls to property
+checks = 100                  | # of not rejected calls
+generation = RANDOMIZED       | parameters are randomly generated
+after-failure = SAMPLE_FIRST  | try previously failed sample, then previous seed
+when-fixed-seed = ALLOW       | fixing the random seed is allowed
+edge-cases#mode = MIXIN       | edge cases are mixed in
+edge-cases#total = 13         | # of all combined edge cases
+edge-cases#tried = 12         | # of edge cases tried in current run
+seed = -4704882028643765326   | random seed to reproduce generated values
+
+
+timestamp = 2026-06-24T20:10:28.640783281, [property-1-cli-argument-validation] CliArgParserPropertyTest:emptyArgsAlwaysFails = 
+                              |-----------------------jqwik-----------------------
+tries = 100                   | # of calls to property
+checks = 100                  | # of not rejected calls
+generation = RANDOMIZED       | parameters are randomly generated
+after-failure = SAMPLE_FIRST  | try previously failed sample, then previous seed
+when-fixed-seed = ALLOW       | fixing the random seed is allowed
+edge-cases#mode = MIXIN       | edge cases are mixed in
+edge-cases#total = 0          | # of all combined edge cases
+edge-cases#tried = 0          | # of edge cases tried in current run
+seed = 1463291464302816043    | random seed to reproduce generated values
+
+
+timestamp = 2026-06-24T20:10:28.654842900, [property-1-cli-argument-validation] CliArgParserPropertyTest:zeroPositionalArgsAlwaysFails = 
+                              |-----------------------jqwik-----------------------
+tries = 100                   | # of calls to property
+checks = 100                  | # of not rejected calls
+generation = RANDOMIZED       | parameters are randomly generated
+after-failure = SAMPLE_FIRST  | try previously failed sample, then previous seed
+when-fixed-seed = ALLOW       | fixing the random seed is allowed
+edge-cases#mode = MIXIN       | edge cases are mixed in
+edge-cases#total = 1          | # of all combined edge cases
+edge-cases#tried = 1          | # of edge cases tried in current run
+seed = -8615453883677760428   | random seed to reproduce generated values
+
+
+timestamp = 2026-06-24T20:10:28.665233570, [property-2-timeout-flag-parsing] CliArgParserPropertyTest:validTimeoutIsAccepted = 
+                              |-----------------------jqwik-----------------------
+tries = 100                   | # of calls to property
+checks = 100                  | # of not rejected calls
+generation = RANDOMIZED       | parameters are randomly generated
+after-failure = SAMPLE_FIRST  | try previously failed sample, then previous seed
+when-fixed-seed = ALLOW       | fixing the random seed is allowed
+edge-cases#mode = MIXIN       | edge cases are mixed in
+edge-cases#total = 4          | # of all combined edge cases
+edge-cases#tried = 3          | # of edge cases tried in current run
+seed = -51413895252743860     | random seed to reproduce generated values
+
+
+timestamp = 2026-06-24T20:10:28.674922256, [property-2-timeout-flag-parsing] CliArgParserPropertyTest:timeoutBelowRangeIsRejected = 
+                              |-----------------------jqwik-----------------------
+tries = 100                   | # of calls to property
+checks = 100                  | # of not rejected calls
+generation = RANDOMIZED       | parameters are randomly generated
+after-failure = SAMPLE_FIRST  | try previously failed sample, then previous seed
+when-fixed-seed = ALLOW       | fixing the random seed is allowed
+edge-cases#mode = MIXIN       | edge cases are mixed in
+edge-cases#total = 5          | # of all combined edge cases
+edge-cases#tried = 5          | # of edge cases tried in current run
+seed = 9006086681065697645    | random seed to reproduce generated values
+
+
+timestamp = 2026-06-24T20:10:28.702502212, [property-1-cli-argument-validation] CliArgParserPropertyTest:onePositionalArgAlwaysFails = 
+                              |-----------------------jqwik-----------------------
+tries = 100                   | # of calls to property
+checks = 100                  | # of not rejected calls
+generation = RANDOMIZED       | parameters are randomly generated
+after-failure = SAMPLE_FIRST  | try previously failed sample, then previous seed
+when-fixed-seed = ALLOW       | fixing the random seed is allowed
+edge-cases#mode = MIXIN       | edge cases are mixed in
+edge-cases#total = 32         | # of all combined edge cases
+edge-cases#tried = 12         | # of edge cases tried in current run
+seed = 7995322354463658130    | random seed to reproduce generated values
+
+
+]]></system-out>
+  <system-err><![CDATA[čvn 24, 2026 8:10:28 ODP. net.jqwik.engine.execution.CheckedProperty maybeWarnOnMultipleTriesWithoutForallParameters
+WARNING: Running Property [CliArgParserPropertyTest:emptyArgsAlwaysFails] in container [com.openscadviewer.engine.CliArgParserPropertyTest] without any @ForAll parameters for 100 tries.
+    Maybe you want to change it into an @Example?
+]]></system-err>
+</testsuite>

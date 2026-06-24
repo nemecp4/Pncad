@@ -119,4 +119,85 @@ object SceneSerializer {
         }
         return arr
     }
+
+    /**
+     * Flattens a 2D scene tree for linear_extrude serialization.
+     * Returns a list of (transform_chain, primitive) pairs where each primitive
+     * is a Circle, Square, or Polygon, and the transform chain wraps the extrusion.
+     *
+     * For CGAL: produces Transform(LinearExtrude(Primitive)) instead of
+     * LinearExtrude(Transform(Primitive)) since CGAL only supports primitives
+     * as direct children of linear_extrude.
+     */
+    private fun flattenForExtrude(node: SceneNode): List<SceneNode> {
+        return when (node) {
+            is SceneNode.Circle, is SceneNode.Square, is SceneNode.Polygon -> listOf(node)
+            is SceneNode.Union -> node.children.flatMap { flattenForExtrude(it) }
+            is SceneNode.Group -> node.children.flatMap { flattenForExtrude(it) }
+            is SceneNode.Difference -> node.children.flatMap { flattenForExtrude(it) }
+            is SceneNode.Intersection -> node.children.flatMap { flattenForExtrude(it) }
+            is SceneNode.Translate -> {
+                flattenForExtrude(node.child).map { child ->
+                    SceneNode.Translate(node.x, node.y, node.z, child)
+                }
+            }
+            is SceneNode.Rotate -> {
+                flattenForExtrude(node.child).map { child ->
+                    SceneNode.Rotate(node.x, node.y, node.z, child)
+                }
+            }
+            is SceneNode.Scale -> {
+                flattenForExtrude(node.child).map { child ->
+                    SceneNode.Scale(node.x, node.y, node.z, child)
+                }
+            }
+            is SceneNode.Color -> flattenForExtrude(node.child)
+            else -> listOf(node)
+        }
+    }
+
+    /**
+     * Wraps a linear_extrude primitive with its parent transforms for CGAL.
+     * Transforms are moved outside the extrusion:
+     * Rotate(Polygon) -> becomes a node that serializes as Rotate(LinearExtrude(Polygon))
+     */
+    private fun serializeExtrudedPrimitive(node: SceneNode, height: Double): JSONObject {
+        return when (node) {
+            is SceneNode.Translate -> {
+                val obj = JSONObject()
+                obj.put("type", "translate")
+                obj.put("x", node.x)
+                obj.put("y", node.y)
+                obj.put("z", node.z)
+                obj.put("child", serializeExtrudedPrimitive(node.child, height))
+                obj
+            }
+            is SceneNode.Rotate -> {
+                val obj = JSONObject()
+                obj.put("type", "rotate")
+                obj.put("x", node.x)
+                obj.put("y", node.y)
+                obj.put("z", node.z)
+                obj.put("child", serializeExtrudedPrimitive(node.child, height))
+                obj
+            }
+            is SceneNode.Scale -> {
+                val obj = JSONObject()
+                obj.put("type", "scale")
+                obj.put("x", node.x)
+                obj.put("y", node.y)
+                obj.put("z", node.z)
+                obj.put("child", serializeExtrudedPrimitive(node.child, height))
+                obj
+            }
+            else -> {
+                // Leaf primitive — wrap in linear_extrude
+                val obj = JSONObject()
+                obj.put("type", "linear_extrude")
+                obj.put("height", height)
+                obj.put("child", nodeToJson(node))
+                obj
+            }
+        }
+    }
 }

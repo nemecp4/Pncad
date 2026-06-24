@@ -193,7 +193,7 @@ class BenchmarkRunner(
             if (result.testCase.category != "custom") continue
 
             val stlFilename = StlFileNamer.generateFilename(result.testCase.category, result.testCase.name)
-            val generatedFile = File(stlOutputDir, stlFilename)
+            val generatedFile = File(File(stlOutputDir, result.engineName), stlFilename)
             val referenceFile = File(referenceDir, stlFilename)
 
             val comparison = StlComparator.compare(generatedFile, referenceFile, result.testCase.name)
