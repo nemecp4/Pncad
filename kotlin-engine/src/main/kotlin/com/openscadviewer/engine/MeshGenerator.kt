@@ -342,14 +342,154 @@ class MeshGenerator {
     ) {
         val h = extrude.height.toFloat()
 
-        // Generate bottom face at z=0
-        generateNode(extrude.child, vertices, normals, colors, transform)
-        // Generate top face at z=height
-        val topTransform = transform.multiply(Matrix4.translation(0f, 0f, h))
-        generateNode(extrude.child, vertices, normals, colors, topTransform)
+        // Extract 2D outline points from the child node(s)
+        val outlines = extract2DOutlines(extrude.child)
 
-        // For proper side walls, we'd need the 2D outline - simplified here
-        // by just showing top and bottom faces
+        for (outline in outlines) {
+            if (outline.size < 3) continue
+
+            // Bottom face (z=0) — fan triangulation with reversed winding for outward normal
+            val normalDown = floatArrayOf(0f, 0f, -1f)
+            val bottomCenter = floatArrayOf(
+                outline.map { it[0] }.average().toFloat(),
+                outline.map { it[1] }.average().toFloat(),
+                0f
+            )
+            for (i in 0 until outline.size - 1) {
+                val p1 = floatArrayOf(outline[i][0], outline[i][1], 0f)
+                val p2 = floatArrayOf(outline[i + 1][0], outline[i + 1][1], 0f)
+                addTransformedTriangle(vertices, normals, colors, transform,
+                    bottomCenter, p2, p1, normalDown, normalDown, normalDown)
+            }
+            // Close the fan
+            val pLast = floatArrayOf(outline.last()[0], outline.last()[1], 0f)
+            val pFirst = floatArrayOf(outline.first()[0], outline.first()[1], 0f)
+            addTransformedTriangle(vertices, normals, colors, transform,
+                bottomCenter, pFirst, pLast, normalDown, normalDown, normalDown)
+
+            // Top face (z=h) — fan triangulation with normal winding
+            val normalUp = floatArrayOf(0f, 0f, 1f)
+            val topCenter = floatArrayOf(bottomCenter[0], bottomCenter[1], h)
+            for (i in 0 until outline.size - 1) {
+                val p1 = floatArrayOf(outline[i][0], outline[i][1], h)
+                val p2 = floatArrayOf(outline[i + 1][0], outline[i + 1][1], h)
+                addTransformedTriangle(vertices, normals, colors, transform,
+                    topCenter, p1, p2, normalUp, normalUp, normalUp)
+            }
+            val tLast = floatArrayOf(outline.last()[0], outline.last()[1], h)
+            val tFirst = floatArrayOf(outline.first()[0], outline.first()[1], h)
+            addTransformedTriangle(vertices, normals, colors, transform,
+                topCenter, tLast, tFirst, normalUp, normalUp, normalUp)
+
+            // Side walls — quads between bottom and top outline edges
+            for (i in outline.indices) {
+                val next = (i + 1) % outline.size
+                val b1 = floatArrayOf(outline[i][0], outline[i][1], 0f)
+                val b2 = floatArrayOf(outline[next][0], outline[next][1], 0f)
+                val t1 = floatArrayOf(outline[i][0], outline[i][1], h)
+                val t2 = floatArrayOf(outline[next][0], outline[next][1], h)
+
+                // Compute outward normal for this wall segment
+                val dx = b2[0] - b1[0]
+                val dy = b2[1] - b1[1]
+                val len = sqrt(dx * dx + dy * dy)
+                val wallNormal = if (len > 0.0001f)
+                    floatArrayOf(dy / len, -dx / len, 0f)
+                else
+                    floatArrayOf(1f, 0f, 0f)
+
+                // Two triangles per quad
+                addTransformedTriangle(vertices, normals, colors, transform,
+                    b1, b2, t2, wallNormal, wallNormal, wallNormal)
+                addTransformedTriangle(vertices, normals, colors, transform,
+                    b1, t2, t1, wallNormal, wallNormal, wallNormal)
+            }
+        }
+    }
+
+    /**
+     * Extracts 2D outline point lists from a SceneNode (for use by linear_extrude).
+     * Returns a list of outlines (each is a list of [x, y] float arrays).
+     */
+    private fun extract2DOutlines(node: SceneNode): List<List<FloatArray>> {
+        return when (node) {
+            is SceneNode.Circle -> {
+                val r = node.radius.toFloat()
+                val segments = node.segments
+                val points = (0 until segments).map { i ->
+                    val angle = 2f * PI.toFloat() * i / segments
+                    floatArrayOf(r * cos(angle), r * sin(angle))
+                }
+                listOf(points)
+            }
+            is SceneNode.Square -> {
+                val sx = node.sizeX.toFloat()
+                val sy = node.sizeY.toFloat()
+                val ox = if (node.center) -sx / 2f else 0f
+                val oy = if (node.center) -sy / 2f else 0f
+                val points = listOf(
+                    floatArrayOf(ox, oy),
+                    floatArrayOf(ox + sx, oy),
+                    floatArrayOf(ox + sx, oy + sy),
+                    floatArrayOf(ox, oy + sy)
+                )
+                listOf(points)
+            }
+            is SceneNode.Polygon -> {
+                val points = node.points.map { (x, y) ->
+                    floatArrayOf(x.toFloat(), y.toFloat())
+                }
+                if (points.size >= 3) listOf(points) else emptyList()
+            }
+            is SceneNode.Union -> {
+                node.children.flatMap { extract2DOutlines(it) }
+            }
+            is SceneNode.Group -> {
+                node.children.flatMap { extract2DOutlines(it) }
+            }
+            is SceneNode.Translate -> {
+                val childOutlines = extract2DOutlines(node.child)
+                childOutlines.map { outline ->
+                    outline.map { p ->
+                        floatArrayOf(p[0] + node.x.toFloat(), p[1] + node.y.toFloat())
+                    }
+                }
+            }
+            is SceneNode.Rotate -> {
+                // Apply 2D rotation (z-axis only for 2D context)
+                val angle = node.z.toFloat() * PI.toFloat() / 180f
+                val cosA = cos(angle)
+                val sinA = sin(angle)
+                val childOutlines = extract2DOutlines(node.child)
+                childOutlines.map { outline ->
+                    outline.map { p ->
+                        floatArrayOf(
+                            p[0] * cosA - p[1] * sinA,
+                            p[0] * sinA + p[1] * cosA
+                        )
+                    }
+                }
+            }
+            is SceneNode.Scale -> {
+                val childOutlines = extract2DOutlines(node.child)
+                childOutlines.map { outline ->
+                    outline.map { p ->
+                        floatArrayOf(p[0] * node.x.toFloat(), p[1] * node.y.toFloat())
+                    }
+                }
+            }
+            is SceneNode.Color -> extract2DOutlines(node.child)
+            is SceneNode.Difference -> {
+                // Simplified: just use the first child's outline
+                if (node.children.isNotEmpty()) extract2DOutlines(node.children[0])
+                else emptyList()
+            }
+            is SceneNode.Intersection -> {
+                if (node.children.isNotEmpty()) extract2DOutlines(node.children[0])
+                else emptyList()
+            }
+            else -> emptyList()
+        }
     }
 
     // --- Utility methods ---

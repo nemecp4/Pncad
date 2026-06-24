@@ -19,7 +19,7 @@ import org.junit.jupiter.api.TestInstance
  * Validates: Requirements 3.3, 3.6
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@Tag("Feature: engine-modularization-and-benchmarks, Property 3: Test case structure validity")
+@Tag("property-3-test-case-structure-validity")
 class TestCaseRegistryTest {
 
     private val parser = OpenSCADParser()
@@ -32,7 +32,8 @@ class TestCaseRegistryTest {
         "csg_operations",
         "combined_operations",
         "variables_expressions",
-        "edge_cases"
+        "edge_cases",
+        "custom"
     )
 
     private val categoryMinimumCounts = mapOf(
@@ -46,9 +47,9 @@ class TestCaseRegistryTest {
     )
 
     @Test
-    fun `registry contains exactly 50 test cases`() {
-        assertEquals(50, TestCaseRegistry.allCases.size,
-            "Expected exactly 50 test cases, got ${TestCaseRegistry.allCases.size}")
+    fun `registry contains expected number of test cases`() {
+        assertTrue(TestCaseRegistry.allCases.size >= 50,
+            "Expected at least 50 test cases, got ${TestCaseRegistry.allCases.size}")
     }
 
     @Test
@@ -80,6 +81,7 @@ class TestCaseRegistryTest {
     @Test
     fun `all test case code does not exceed 2048 characters`() {
         for (tc in TestCaseRegistry.allCases) {
+            if (tc.category == "custom") continue  // custom tests have no size limit
             assertTrue(tc.code.length <= 2048,
                 "Test case '${tc.name}' code exceeds 2048 chars (length=${tc.code.length})")
         }
@@ -109,6 +111,7 @@ class TestCaseRegistryTest {
     @Test
     fun `each category has at least one single-operation test`() {
         for (category in validCategories) {
+            if (category == "custom") continue  // custom tests have no structural requirements
             val cases = TestCaseRegistry.byCategory(category)
             assertTrue(cases.isNotEmpty(),
                 "Category '$category' has no test cases")
@@ -128,6 +131,7 @@ class TestCaseRegistryTest {
     @Test
     fun `each category has at least one test with 3 or more operations`() {
         for (category in validCategories) {
+            if (category == "custom") continue  // custom tests have no structural requirements
             val cases = TestCaseRegistry.byCategory(category)
             val hasMultiOp = cases.any { tc ->
                 val scene = parser.parse(tc.code)

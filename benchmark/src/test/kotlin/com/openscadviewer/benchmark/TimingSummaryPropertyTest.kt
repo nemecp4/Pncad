@@ -21,46 +21,42 @@ class TimingSummaryPropertyTest {
     /**
      * Feature: engine-modularization-and-benchmarks, Property 7: Timing summary correctness
      *
-     * For any list of BenchmarkResults, the formatted table must contain one row per result.
+     * For any list of BenchmarkResults, the formatted output must contain one timing line per result.
      *
      * Validates: Requirements 4.6, 4.7
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 7: Timing summary correctness")
-    fun formattedTableContainsOneRowPerResult(
+    @Tag("property-7-timing-summary-correctness")
+    fun formattedOutputContainsOneTimingLinePerResult(
         @ForAll("benchmarkResults") results: List<BenchmarkResult>
     ) {
-        val table = TimingSummaryFormatter.formatTable(results)
-        val lines = table.lines().filter { it.isNotBlank() }
+        val output = TimingSummaryFormatter.formatTable(results)
+        val timingLines = output.lines().filter { it.contains(" seconds") && !it.startsWith("  ") }
 
-        // First line is header, second is separator, remaining are data rows
-        val dataRowCount = if (lines.size >= 2) lines.size - 2 else 0
-        assertEquals(results.size, dataRowCount,
-            "Expected ${results.size} data rows, got $dataRowCount.\nTable:\n$table")
+        assertEquals(results.size, timingLines.size,
+            "Expected ${results.size} timing lines, got ${timingLines.size}.\nOutput:\n$output")
     }
 
     /**
      * Feature: engine-modularization-and-benchmarks, Property 7: Timing summary correctness
      *
-     * For any list of BenchmarkResults, the formatted table must contain all required columns:
-     * test name, category, engine, time, status.
+     * For any list of BenchmarkResults, the formatted output must contain an engine header
+     * for each distinct engine.
      *
      * Validates: Requirements 4.6, 4.7
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 7: Timing summary correctness")
-    fun formattedTableContainsAllRequiredColumns(
+    @Tag("property-7-timing-summary-correctness")
+    fun formattedOutputContainsEngineHeaders(
         @ForAll("benchmarkResults") results: List<BenchmarkResult>
     ) {
-        val table = TimingSummaryFormatter.formatTable(results)
-        val headerLine = table.lines().firstOrNull() ?: ""
+        val output = TimingSummaryFormatter.formatTable(results)
+        val distinctEngines = results.map { it.engineName }.distinct()
 
-        // Check all required columns are present in the header
-        assertTrue(headerLine.contains("Test Name"), "Header missing 'Test Name' column")
-        assertTrue(headerLine.contains("Category"), "Header missing 'Category' column")
-        assertTrue(headerLine.contains("Engine"), "Header missing 'Engine' column")
-        assertTrue(headerLine.contains("Time (ms)"), "Header missing 'Time (ms)' column")
-        assertTrue(headerLine.contains("Status"), "Header missing 'Status' column")
+        for (engine in distinctEngines) {
+            assertTrue(output.contains("engine - $engine"),
+                "Output missing engine header 'engine - $engine'")
+        }
     }
 
     /**
@@ -72,7 +68,7 @@ class TimingSummaryPropertyTest {
      * Validates: Requirements 4.6, 4.7
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 7: Timing summary correctness")
+    @Tag("property-7-timing-summary-correctness")
     fun aggregateTotalsEqualSumOfIndividualResults(
         @ForAll("benchmarkResults") results: List<BenchmarkResult>
     ) {
@@ -113,28 +109,20 @@ class TimingSummaryPropertyTest {
     /**
      * Feature: engine-modularization-and-benchmarks, Property 7: Timing summary correctness
      *
-     * For any list of BenchmarkResults, each result's data must appear in the formatted table rows.
+     * For any list of BenchmarkResults, each result's test name must appear in the formatted output.
      *
      * Validates: Requirements 4.6, 4.7
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 7: Timing summary correctness")
-    fun eachResultDataAppearsInTableRow(
+    @Tag("property-7-timing-summary-correctness")
+    fun eachResultTestNameAppearsInOutput(
         @ForAll("benchmarkResults") results: List<BenchmarkResult>
     ) {
-        val table = TimingSummaryFormatter.formatTable(results)
+        val output = TimingSummaryFormatter.formatTable(results)
 
         for (result in results) {
-            assertTrue(table.contains(result.testCase.name),
-                "Table does not contain test name '${result.testCase.name}'")
-            assertTrue(table.contains(result.testCase.category),
-                "Table does not contain category '${result.testCase.category}'")
-            assertTrue(table.contains(result.engineName),
-                "Table does not contain engine name '${result.engineName}'")
-            assertTrue(table.contains(result.timeMs.toString()),
-                "Table does not contain time '${result.timeMs}'")
-            assertTrue(table.contains(result.status.name),
-                "Table does not contain status '${result.status.name}'")
+            assertTrue(output.contains(result.testCase.name),
+                "Output does not contain test name '${result.testCase.name}'")
         }
     }
 
@@ -149,7 +137,7 @@ class TimingSummaryPropertyTest {
      * Validates: Requirements 7.3
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 12: Result status enum constraint")
+    @Tag("property-12-result-status-enum-constraint")
     fun resultStatusIsConstrainedToValidValues(
         @ForAll("singleBenchmarkResult") result: BenchmarkResult
     ) {
@@ -172,7 +160,7 @@ class TimingSummaryPropertyTest {
      * Validates: Requirements 7.3
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 12: Result status enum constraint")
+    @Tag("property-12-result-status-enum-constraint")
     fun resultStatusEnumHasExactlyFiveValues(
         @ForAll("singleBenchmarkResult") result: BenchmarkResult
     ) {
@@ -189,26 +177,44 @@ class TimingSummaryPropertyTest {
     /**
      * Feature: engine-modularization-and-benchmarks, Property 12: Result status enum constraint
      *
-     * For any benchmark result, the status displayed in the formatted table matches
-     * exactly one of the valid enum names.
+     * For any benchmark result, the detail line in the formatted output reflects the status correctly:
+     * - SUCCESS results show the .stl path
+     * - TIMEOUT results show "TIMEOUT"
+     * - SKIPPED results show "SKIPPED"
+     * - PARSE_ERROR results show "PARSE_ERROR"
+     * - COMPUTE_ERROR results show "COMPUTE_ERROR"
      *
      * Validates: Requirements 7.3
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 12: Result status enum constraint")
-    fun statusInFormattedTableMatchesEnumName(
+    @Tag("property-12-result-status-enum-constraint")
+    fun statusInFormattedOutputMatchesResult(
         @ForAll("singleBenchmarkResult") result: BenchmarkResult
     ) {
-        val table = TimingSummaryFormatter.formatTable(listOf(result))
-        val validStatusNames = setOf("SUCCESS", "PARSE_ERROR", "COMPUTE_ERROR", "TIMEOUT", "SKIPPED")
+        val output = TimingSummaryFormatter.formatTable(listOf(result))
 
-        // The table should contain exactly the status name from the result
-        assertTrue(table.contains(result.status.name),
-            "Formatted table does not contain status '${result.status.name}'")
-
-        // Verify the status in the table is one of the valid values
-        assertTrue(result.status.name in validStatusNames,
-            "Status '${result.status.name}' in formatted output is not a valid ResultStatus value")
+        when (result.status) {
+            ResultStatus.SUCCESS -> {
+                assertTrue(output.contains(".stl"),
+                    "SUCCESS result should contain .stl path in output")
+            }
+            ResultStatus.TIMEOUT -> {
+                assertTrue(output.contains("TIMEOUT"),
+                    "TIMEOUT result should contain 'TIMEOUT' in output")
+            }
+            ResultStatus.SKIPPED -> {
+                assertTrue(output.contains("SKIPPED"),
+                    "SKIPPED result should contain 'SKIPPED' in output")
+            }
+            ResultStatus.PARSE_ERROR -> {
+                assertTrue(output.contains("PARSE_ERROR"),
+                    "PARSE_ERROR result should contain 'PARSE_ERROR' in output")
+            }
+            ResultStatus.COMPUTE_ERROR -> {
+                assertTrue(output.contains("COMPUTE_ERROR"),
+                    "COMPUTE_ERROR result should contain 'COMPUTE_ERROR' in output")
+            }
+        }
     }
 
     // --- Providers ---

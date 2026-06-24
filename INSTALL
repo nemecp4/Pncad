@@ -303,3 +303,174 @@ The project requires JDK 17. Check with `java -version`. On Ubuntu:
 sudo update-alternatives --config java
 # Select java-17-openjdk
 ```
+
+
+## Performance Testing (Benchmark Suite)
+
+The benchmark module runs OpenSCAD test cases through the Kotlin compute engine,
+measures execution time, and writes STL output for correctness verification.
+
+### Running All Benchmarks
+
+```bash
+./gradlew :benchmark:cleanTest :benchmark:test --tests '*BenchmarkTest*'
+```
+
+This runs all test cases (50+ built-in + custom), prints a timing summary to
+stdout, and writes STL files to disk.
+
+### Running Only Property Tests (no mesh generation)
+
+```bash
+./gradlew :benchmark:test
+```
+
+### Running a Specific Test Class
+
+```bash
+# Only the benchmark suite (timing + STL output)
+./gradlew :benchmark:test --tests '*BenchmarkTest*'
+
+# Only the test case registry validation
+./gradlew :benchmark:test --tests '*TestCaseRegistryTest*'
+
+# Only STL filename sanitization properties
+./gradlew :benchmark:test --tests '*StlFileNamerPropertyTest*'
+```
+
+### File Locations
+
+| What | Path |
+|------|------|
+| Source .scad files (built-in) | `benchmark/src/test/resources/testcases/{category}/{name}.scad` |
+| Source .scad files (custom) | `benchmark/src/test/resources/testcases/custom/{name}.scad` |
+| Expected results (reference STL) | `benchmark/src/test/resources/expected_results/custom_{name}.stl` |
+| Generated STL output | `benchmark/build/benchmark-stl/{category}_{name}.stl` |
+| Test case registry | `benchmark/src/test/kotlin/com/openscadviewer/benchmark/TestCaseRegistry.kt` |
+| Benchmark runner logic | `benchmark/src/test/kotlin/com/openscadviewer/benchmark/BenchmarkRunner.kt` |
+
+### Adding a Custom Test Case
+
+1. Create the .scad file:
+   ```
+   benchmark/src/test/resources/testcases/custom/my_model.scad
+   ```
+
+2. Generate the reference STL using OpenSCAD:
+   ```bash
+   openscad -o benchmark/src/test/resources/expected_results/custom_my_model.stl \
+            benchmark/src/test/resources/testcases/custom/my_model.scad
+   ```
+
+3. Register in `TestCaseRegistry.kt`:
+   ```kotlin
+   val custom: List<TestCase> = listOf(
+       TestCase(name = "sun", category = "custom", code = loadCode("custom", "sun")),
+       TestCase(name = "my_model", category = "custom", code = loadCode("custom", "my_model"))
+   )
+   ```
+
+4. Run and compare:
+   ```bash
+   ./gradlew :benchmark:cleanTest :benchmark:test --tests '*BenchmarkTest*'
+   ```
+
+   The output will include a comparison section showing triangle count
+   differences between your generated STL and the OpenSCAD reference.
+
+### Output Format
+
+The benchmark prints results grouped by engine:
+
+```
+engine - kotlin
+prim_cube_unit - 0.001 seconds
+  prim_cube_unit.scad -> ./benchmark/build/benchmark-stl/geometry_primitives_prim_cube_unit.stl
+sun - 0.002 seconds
+  sun.scad -> ./benchmark/build/benchmark-stl/custom_sun.stl
+engine - cgal
+prim_cube_unit - 0.000 seconds
+  SKIPPED
+
+=== Reference STL Comparison ===
+sun: 672 triangles (generated) vs 672 (expected) ✓ MATCH
+```
+
+### Notes
+
+- The benchmark module is excluded from the default `./gradlew check` task.
+  You must run it explicitly with `./gradlew :benchmark:test`.
+- Custom tests have no code size limit (built-in tests are capped at 2048 chars).
+- The CGAL engine will show SKIPPED unless the native library is loaded.
+- If a test hangs, the parser has a 10-second timeout safety limit.
+
+### Running with the CGAL Engine
+
+The CGAL engine performs correct CSG boolean operations (difference, intersection)
+but requires the native library `libcgal_engine.so` to be available on the JVM
+library path.
+
+To run benchmarks with the CGAL engine enabled:
+
+```bash
+# Build the native library for your host platform (Linux x86_64)
+# (requires CGAL, GMP, MPFR, Boost headers installed system-wide)
+mkdir -p cgal-engine/build/native && cd cgal-engine/build/native
+cmake ../../src/main/cpp -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+cd ../../..
+
+# Run benchmarks with native library on the path
+./gradlew :benchmark:cleanTest :benchmark:test --tests '*BenchmarkTest*' \
+    -Djava.library.path=cgal-engine/build/native
+```
+
+If `libcgal_engine.so` is not found, the CGAL engine reports `isAvailable() = false`
+and all its results show as SKIPPED. This is safe — the benchmark always completes.
+
+### Engine Comparison: Kotlin vs CGAL
+
+| Feature | Kotlin Engine | CGAL Engine |
+|---------|--------------|-------------|
+| Union | Renders all children (correct) | Exact boolean union |
+| Difference | Renders all children (no subtraction) | Exact boolean subtraction |
+| Intersection | Renders all children (no clipping) | Exact boolean intersection |
+| Speed | Fast (~1ms for most models) | Slower (exact arithmetic) |
+| Dependencies | Pure JVM, no native libs | Requires CGAL/GMP/MPFR native |
+| Use case | Quick preview | Correct STL for 3D printing |
+
+Models using only primitives + transforms + union render identically on both
+engines. Models using `difference()` or `intersection()` require the CGAL engine
+for correct output.
+
+### Implementing CSG in Pure Kotlin — Cost Estimate
+
+Implementing correct CSG boolean operations in pure Kotlin (eliminating the CGAL
+dependency) would require:
+
+**Scope:**
+- BSP (Binary Space Partitioning) tree-based CSG algorithm
+- Robust polygon splitting with numerical tolerance handling
+- Coplanar face detection and classification
+- Mesh cleanup (T-junction removal, degenerate triangle filtering)
+- Proper handling of edge cases (touching faces, coincident planes)
+
+**Estimated effort:**
+- Core BSP tree: ~1500-2000 lines of Kotlin
+- Polygon splitting/clipping: ~800-1000 lines
+- Numerical robustness layer: ~500 lines
+- Mesh cleanup and triangulation: ~500 lines
+- Total: ~3000-4000 lines, 2-4 weeks of focused development
+
+**Trade-offs:**
+- Floating-point arithmetic (unlike CGAL's exact rationals) means edge cases
+  with coplanar or near-coplanar faces may produce artifacts
+- Performance likely 5-20x slower than CGAL for complex models
+- Simpler models (few boolean ops) would work reliably
+- Complex models (nested differences, many intersections) risk numerical instability
+
+**Alternative: use an existing JVM CSG library**
+- `jcsg` (Java CSG using BSP): ~ready to integrate, BSD licensed
+- Would give correct difference/intersection with moderate robustness
+- Not as robust as CGAL for degenerate cases but sufficient for most 3D print models
+

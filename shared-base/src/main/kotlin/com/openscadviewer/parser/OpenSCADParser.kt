@@ -5,23 +5,254 @@ import kotlin.math.sin
 import kotlin.math.PI
 
 /**
+ * Multi-type value system for OpenSCAD variables.
+ */
+sealed class ScadValue {
+    data class Num(val value: Double) : ScadValue()
+    data class Str(val value: String) : ScadValue()
+    data class Vec(val value: List<ScadValue>) : ScadValue()
+    data class Bool(val value: Boolean) : ScadValue()
+    object Undef : ScadValue()
+
+    fun toDouble(): Double = when (this) {
+        is Num -> value
+        is Bool -> if (value) 1.0 else 0.0
+        else -> 0.0
+    }
+}
+
+/**
  * Parser for a subset of OpenSCAD language.
  * Supports: cube, sphere, cylinder, translate, rotate, scale, union, difference, intersection,
- * color, linear_extrude, circle, square, polygon, module calls, and variables.
+ * color, linear_extrude, circle, square, polygon, text, module calls, user-defined functions,
+ * multi-type variables, ternary operator, string indexing, and array indexing.
  */
 class OpenSCADParser {
 
     private var pos = 0
     private var input = ""
-    private val variables = mutableMapOf<String, Double>()
+    private val vars = mutableMapOf<String, ScadValue>()
+    private val modules = mutableMapOf<String, ModuleDefinition>()
+    private val functions = mutableMapOf<String, FunctionDefinition>()
+    private var parseStartTime = System.currentTimeMillis()
+    private val PARSE_TIMEOUT_MS = 10_000L
+
+    companion object {
+        private val VAR_ASSIGN_REGEX = Regex("^(\\$?[a-zA-Z_][a-zA-Z0-9_]*)\\s*=")
+    }
+
+    /**
+     * Backward-compatible variables map. Reading delegates to vars (Num values).
+     * Writing stores as Num in vars.
+     */
+    val variables: MutableMap<String, Double> = object : AbstractMutableMap<String, Double>() {
+        override val entries: MutableSet<MutableMap.MutableEntry<String, Double>>
+            get() = vars.entries.mapNotNull { (k, v) ->
+                object : MutableMap.MutableEntry<String, Double> {
+                    override val key = k
+                    override val value = v.toDouble()
+                    override fun setValue(newValue: Double): Double {
+                        val old = v.toDouble()
+                        vars[k] = ScadValue.Num(newValue)
+                        return old
+                    }
+                }
+            }.toMutableSet()
+
+        override fun put(key: String, value: Double): Double? {
+            val old = vars[key]?.toDouble()
+            vars[key] = ScadValue.Num(value)
+            return old
+        }
+
+        override fun get(key: String): Double? {
+            return vars[key]?.toDouble()
+        }
+
+        override fun containsKey(key: String): Boolean = vars.containsKey(key)
+
+        override fun remove(key: String): Double? {
+            val old = vars[key]?.toDouble()
+            vars.remove(key)
+            return old
+        }
+
+        override val size: Int get() = vars.size
+
+        override fun clear() { vars.clear() }
+    }
+
+    private data class ModuleDefinition(
+        val params: List<String>,
+        val defaults: List<String?>,
+        val body: String
+    )
+
+    private data class FunctionDefinition(
+        val params: List<String>,
+        val defaults: List<String?>,
+        val body: String
+    )
 
     fun parse(code: String): SceneNode {
         input = code
         pos = 0
-        variables.clear()
+        vars.clear()
+        modules.clear()
+        functions.clear()
+        parseStartTime = System.currentTimeMillis()
+
+        // Two-pass parsing: first pass scans for module and function definitions
+        scanDefinitions(code)
+
+        // Second pass: parse the actual code
+        return parseInternal()
+    }
+
+    /**
+     * Internal parse that preserves pre-set variables, modules, and functions.
+     * Used by for-loops and module calls to expand code with context.
+     */
+    private fun parseWithContext(code: String): SceneNode {
+        input = code
+        pos = 0
+        return parseInternal()
+    }
+
+    /**
+     * First pass: scan for module and function definitions without fully parsing.
+     */
+    private fun scanDefinitions(code: String) {
+        val savedPos = pos
+        val savedInput = input
+        input = code
+        pos = 0
+
+        while (pos < input.length) {
+            checkTimeout()
+            skipWhitespaceAndComments()
+            if (pos >= input.length) break
+
+            val start = pos
+            val id = parseIdentifier()
+            if (id == "module") {
+                scanModuleDefinition()
+            } else if (id == "function") {
+                scanFunctionDefinition()
+            } else {
+                // Skip to next statement
+                if (id != null || pos == start) {
+                    skipToNextStatement()
+                } else {
+                    pos++
+                }
+            }
+        }
+
+        input = savedInput
+        pos = savedPos
+    }
+
+    private fun scanModuleDefinition() {
+        skipWhitespaceAndComments()
+        val name = parseIdentifier() ?: run { skipToNextStatement(); return }
+        skipWhitespaceAndComments()
+
+        val (params, defaults) = parseParamList()
+        skipWhitespaceAndComments()
+
+        if (pos < input.length && input[pos] == '{') {
+            pos++
+            val bodyStart = pos
+            var depth = 1
+            while (pos < input.length && depth > 0) {
+                when (input[pos]) {
+                    '{' -> depth++
+                    '}' -> depth--
+                }
+                if (depth > 0) pos++
+            }
+            val bodyEnd = pos
+            if (pos < input.length) pos++
+            modules[name] = ModuleDefinition(params, defaults, input.substring(bodyStart, bodyEnd))
+        } else {
+            val bodyStart = pos
+            skipToNextStatement()
+            modules[name] = ModuleDefinition(params, defaults, input.substring(bodyStart, pos))
+        }
+    }
+
+    private fun scanFunctionDefinition() {
+        skipWhitespaceAndComments()
+        val name = parseIdentifier() ?: run { skipToNextStatement(); return }
+        skipWhitespaceAndComments()
+
+        val (params, defaults) = parseParamList()
+        skipWhitespaceAndComments()
+
+        // function name(params) = expr;
+        if (pos < input.length && input[pos] == '=') {
+            pos++
+            skipWhitespaceAndComments()
+            val bodyStart = pos
+            // Read until semicolon at depth 0
+            var depth = 0
+            while (pos < input.length) {
+                when (input[pos]) {
+                    '(', '[' -> depth++
+                    ')', ']' -> depth--
+                    ';' -> if (depth <= 0) break
+                }
+                pos++
+            }
+            val body = input.substring(bodyStart, pos).trim()
+            if (pos < input.length && input[pos] == ';') pos++
+            functions[name] = FunctionDefinition(params, defaults, body)
+        } else {
+            skipToNextStatement()
+        }
+    }
+
+    private fun parseParamList(): Pair<List<String>, List<String?>> {
+        val params = mutableListOf<String>()
+        val defaults = mutableListOf<String?>()
+        if (pos < input.length && input[pos] == '(') {
+            pos++
+            skipWhitespaceAndComments()
+            while (pos < input.length && input[pos] != ')') {
+                val param = parseIdentifier()
+                if (param != null) params.add(param)
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == '=') {
+                    pos++
+                    skipWhitespaceAndComments()
+                    val defStart = pos
+                    var depth = 0
+                    while (pos < input.length) {
+                        when (input[pos]) {
+                            '(', '[' -> depth++
+                            ')', ']' -> { if (depth == 0) break; depth-- }
+                            ',' -> { if (depth == 0) break }
+                        }
+                        pos++
+                    }
+                    defaults.add(input.substring(defStart, pos).trim())
+                } else {
+                    defaults.add(null)
+                }
+                if (pos < input.length && input[pos] == ',') pos++
+                skipWhitespaceAndComments()
+            }
+            if (pos < input.length && input[pos] == ')') pos++
+        }
+        return Pair(params, defaults)
+    }
+
+    private fun parseInternal(): SceneNode {
         val children = mutableListOf<SceneNode>()
 
         while (pos < input.length) {
+            checkTimeout()
             skipWhitespaceAndComments()
             if (pos >= input.length) break
 
@@ -34,18 +265,31 @@ class OpenSCADParser {
         return SceneNode.Group(children)
     }
 
+    private fun checkTimeout() {
+        if (System.currentTimeMillis() - parseStartTime > PARSE_TIMEOUT_MS) {
+            throw RuntimeException("Parser timeout exceeded ${PARSE_TIMEOUT_MS}ms")
+        }
+    }
+
     private fun parseStatement(): SceneNode? {
         skipWhitespaceAndComments()
         if (pos >= input.length) return null
 
-        // Check for variable assignment
-        val varMatch = Regex("^([a-zA-Z_][a-zA-Z0-9_]*)\\s*=").find(input.substring(pos))
+        // Skip # debug modifier
+        if (input[pos] == '#') {
+            pos++
+            skipWhitespaceAndComments()
+        }
+
+        // Check for variable assignment (including $fn, $fa, etc.)
+        val lookAhead = input.substring(pos, minOf(pos + 80, input.length))
+        val varMatch = VAR_ASSIGN_REGEX.find(lookAhead)
         if (varMatch != null) {
             val varName = varMatch.groupValues[1]
             pos += varMatch.value.length
             skipWhitespaceAndComments()
-            val value = parseExpression()
-            variables[varName] = value
+            val value = parseExpressionValue()
+            vars[varName] = value
             skipWhitespaceAndComments()
             if (pos < input.length && input[pos] == ';') pos++
             return null
@@ -71,13 +315,588 @@ class OpenSCADParser {
             "polygon" -> parsePolygon()
             "hull" -> parseCSGOperation(identifier)
             "minkowski" -> parseCSGOperation(identifier)
+            "text" -> parseText()
+            "module" -> { skipModuleDefinition(); null }
+            "function" -> { skipFunctionDefinition(); null }
+            "for" -> parseForLoop()
             else -> {
-                // Unknown identifier - try to skip it
-                skipToNextStatement()
-                null
+                if (modules.containsKey(identifier)) {
+                    parseModuleCall(identifier)
+                } else {
+                    // Unknown identifier - try to skip it
+                    skipToNextStatement()
+                    null
+                }
             }
         }
     }
+
+    // Skip module definition in second pass (already scanned in first pass)
+    private fun skipModuleDefinition() {
+        skipWhitespaceAndComments()
+        parseIdentifier() // name
+        skipWhitespaceAndComments()
+        if (pos < input.length && input[pos] == '(') {
+            pos++; skipToCloseParen()
+        }
+        skipWhitespaceAndComments()
+        if (pos < input.length && input[pos] == '{') {
+            pos++
+            var depth = 1
+            while (pos < input.length && depth > 0) {
+                when (input[pos]) { '{' -> depth++; '}' -> depth-- }
+                if (depth > 0) pos++
+            }
+            if (pos < input.length) pos++
+        } else {
+            skipToNextStatement()
+        }
+    }
+
+    // Skip function definition in second pass (already scanned in first pass)
+    private fun skipFunctionDefinition() {
+        skipWhitespaceAndComments()
+        parseIdentifier() // name
+        skipWhitespaceAndComments()
+        if (pos < input.length && input[pos] == '(') {
+            pos++; skipToCloseParen()
+        }
+        skipWhitespaceAndComments()
+        if (pos < input.length && input[pos] == '=') {
+            pos++
+            var depth = 0
+            while (pos < input.length) {
+                when (input[pos]) {
+                    '(', '[' -> depth++
+                    ')', ']' -> depth--
+                    ';' -> if (depth <= 0) { pos++; return }
+                }
+                pos++
+            }
+        } else {
+            skipToNextStatement()
+        }
+    }
+
+    // --- Expression evaluation returning ScadValue ---
+
+    private fun parseExpressionValue(): ScadValue {
+        skipWhitespaceAndComments()
+        if (pos >= input.length) return ScadValue.Num(0.0)
+
+        // Array literal
+        if (input[pos] == '[') {
+            return parseArrayValue()
+        }
+
+        // String literal
+        if (input[pos] == '"') {
+            return ScadValue.Str(parseStringLiteral())
+        }
+
+        // Otherwise parse as numeric expression (which may return via ternary etc.)
+        val result = parseExpression()
+        return ScadValue.Num(result)
+    }
+
+    private fun parseArrayValue(): ScadValue {
+        if (pos >= input.length || input[pos] != '[') return ScadValue.Vec(emptyList())
+        pos++ // skip [
+        skipWhitespaceAndComments()
+
+        val elements = mutableListOf<ScadValue>()
+        while (pos < input.length && input[pos] != ']') {
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ']') break
+            elements.add(parseExpressionValue())
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ',') pos++
+            skipWhitespaceAndComments()
+        }
+        if (pos < input.length) pos++ // skip ]
+        return ScadValue.Vec(elements)
+    }
+
+    private fun parseStringLiteral(): String {
+        if (pos >= input.length || input[pos] != '"') return ""
+        pos++ // skip opening "
+        val sb = StringBuilder()
+        while (pos < input.length && input[pos] != '"') {
+            if (input[pos] == '\\' && pos + 1 < input.length) {
+                pos++
+                when (input[pos]) {
+                    '"' -> sb.append('"')
+                    '\\' -> sb.append('\\')
+                    'n' -> sb.append('\n')
+                    't' -> sb.append('\t')
+                    else -> { sb.append('\\'); sb.append(input[pos]) }
+                }
+            } else {
+                sb.append(input[pos])
+            }
+            pos++
+        }
+        if (pos < input.length) pos++ // skip closing "
+        return sb.toString()
+    }
+
+    // --- Numeric expression evaluation ---
+
+    fun parseExpression(): Double {
+        skipWhitespaceAndComments()
+        var result = parseComparison()
+
+        // Ternary operator — handle iteratively for nested ternaries
+        skipWhitespaceAndComments()
+        if (pos < input.length && input[pos] == '?') {
+            pos++
+            skipWhitespaceAndComments()
+            if (result != 0.0) {
+                // Condition is true: evaluate true branch, skip false branch
+                val trueVal = parseExpression()
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == ':') pos++
+                skipWhitespaceAndComments()
+                skipExpressionValue() // skip false branch without deep evaluation
+                return trueVal
+            } else {
+                // Condition is false: skip true branch, evaluate false branch
+                skipExpressionValue() // skip true branch
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == ':') pos++
+                skipWhitespaceAndComments()
+                return parseExpression() // evaluate false branch (tail call for chain)
+            }
+        }
+
+        return result
+    }
+
+    /**
+     * Skip over an expression value without evaluating it deeply.
+     * Handles numbers, identifiers, parenthesized exprs, nested ternaries.
+     */
+    private fun skipExpressionValue() {
+        skipWhitespaceAndComments()
+        if (pos >= input.length) return
+
+        // We need to skip a complete expression (which may include nested ternaries)
+        // Strategy: count balanced parens/brackets and stop at ':' or ')' or ']' at depth 0
+        var depth = 0
+        var ternaryDepth = 0
+        while (pos < input.length) {
+            when (input[pos]) {
+                '(' , '[' -> { depth++; pos++ }
+                ')' , ']' -> {
+                    if (depth == 0) return
+                    depth--; pos++
+                }
+                '?' -> { ternaryDepth++; pos++ }
+                ':' -> {
+                    if (depth == 0 && ternaryDepth == 0) return
+                    if (ternaryDepth > 0) ternaryDepth--
+                    pos++
+                }
+                ';', ',' -> { if (depth == 0) return; pos++ }
+                '}' -> { if (depth == 0) return; pos++ }
+                '"' -> { pos++; while (pos < input.length && input[pos] != '"') { if (input[pos] == '\\') pos++; pos++ }; if (pos < input.length) pos++ }
+                else -> pos++
+            }
+        }
+    }
+
+    private fun parseComparison(): Double {
+        var result = parseAddSub()
+
+        while (pos < input.length) {
+            skipWhitespaceAndComments()
+            if (pos >= input.length) break
+            when {
+                pos + 1 < input.length && input[pos] == '<' && input[pos + 1] == '=' -> {
+                    pos += 2; result = if (result <= parseAddSub()) 1.0 else 0.0
+                }
+                pos + 1 < input.length && input[pos] == '>' && input[pos + 1] == '=' -> {
+                    pos += 2; result = if (result >= parseAddSub()) 1.0 else 0.0
+                }
+                pos + 1 < input.length && input[pos] == '=' && input[pos + 1] == '=' -> {
+                    pos += 2; result = if (result == parseAddSub()) 1.0 else 0.0
+                }
+                pos + 1 < input.length && input[pos] == '!' && input[pos + 1] == '=' -> {
+                    pos += 2; result = if (result != parseAddSub()) 1.0 else 0.0
+                }
+                input[pos] == '<' && !(pos + 1 < input.length && input[pos + 1] == '=') -> {
+                    pos++; result = if (result < parseAddSub()) 1.0 else 0.0
+                }
+                input[pos] == '>' && !(pos + 1 < input.length && input[pos + 1] == '=') -> {
+                    pos++; result = if (result > parseAddSub()) 1.0 else 0.0
+                }
+                else -> break
+            }
+        }
+        return result
+    }
+
+    private fun parseAddSub(): Double {
+        skipWhitespaceAndComments()
+        var result = parseTerm()
+
+        while (pos < input.length) {
+            skipWhitespaceAndComments()
+            if (pos >= input.length) break
+            when (input[pos]) {
+                '+' -> { pos++; result += parseTerm() }
+                '-' -> { pos++; result -= parseTerm() }
+                else -> break
+            }
+        }
+        return result
+    }
+
+    private fun parseTerm(): Double {
+        skipWhitespaceAndComments()
+        var result = parseFactor()
+
+        while (pos < input.length) {
+            skipWhitespaceAndComments()
+            if (pos >= input.length) break
+            when (input[pos]) {
+                '*' -> { pos++; result *= parseFactor() }
+                '/' -> { pos++; val d = parseFactor(); if (d != 0.0) result /= d }
+                '%' -> { pos++; val d = parseFactor(); if (d != 0.0) result %= d }
+                else -> break
+            }
+        }
+        return result
+    }
+
+    private fun parseFactor(): Double {
+        skipWhitespaceAndComments()
+        if (pos >= input.length) return 0.0
+
+        // Unary minus
+        if (input[pos] == '-') {
+            pos++
+            return -parseFactor()
+        }
+
+        // Unary not
+        if (input[pos] == '!') {
+            pos++
+            val v = parseFactor()
+            return if (v == 0.0) 1.0 else 0.0
+        }
+
+        // Parenthesized expression
+        if (input[pos] == '(') {
+            pos++
+            val result = parseExpression()
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ')') pos++
+            return result
+        }
+
+        // Number
+        if (input[pos].isDigit() || input[pos] == '.') {
+            return parseNumber()
+        }
+
+        // String literal in expression context — compare etc.
+        if (input[pos] == '"') {
+            val str = parseStringLiteral()
+            // String comparison will be handled at ScadValue level
+            // For numeric context, return 0
+            return 0.0
+        }
+
+        // Variable or function
+        val id = parseIdentifier()
+        if (id != null) {
+            return resolveIdentifier(id)
+        }
+
+        return 0.0
+    }
+
+    private fun resolveIdentifier(id: String): Double {
+        when (id) {
+            "true" -> return 1.0
+            "false" -> return 0.0
+            "PI" -> return PI
+            "sin" -> return sin(parseFunctionArg() * PI / 180.0)
+            "cos" -> return cos(parseFunctionArg() * PI / 180.0)
+            "abs" -> return kotlin.math.abs(parseFunctionArg())
+            "sqrt" -> return kotlin.math.sqrt(parseFunctionArg())
+            "floor" -> return kotlin.math.floor(parseFunctionArg())
+            "ceil" -> return kotlin.math.ceil(parseFunctionArg())
+            "round" -> return kotlin.math.round(parseFunctionArg()).toDouble()
+            "pow" -> {
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == '(') {
+                    pos++
+                    val base = parseExpression()
+                    skipWhitespaceAndComments()
+                    if (pos < input.length && input[pos] == ',') pos++
+                    val exp = parseExpression()
+                    skipWhitespaceAndComments()
+                    if (pos < input.length && input[pos] == ')') pos++
+                    return Math.pow(base, exp)
+                }
+                return 0.0
+            }
+            "max" -> return parseVarArgFunc { a, b -> maxOf(a, b) }
+            "min" -> return parseVarArgFunc { a, b -> minOf(a, b) }
+            "len" -> {
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == '(') {
+                    pos++
+                    skipWhitespaceAndComments()
+                    val argVal = parseExpressionValueInner()
+                    skipWhitespaceAndComments()
+                    if (pos < input.length && input[pos] == ')') pos++
+                    return when (argVal) {
+                        is ScadValue.Vec -> argVal.value.size.toDouble()
+                        is ScadValue.Str -> argVal.value.length.toDouble()
+                        else -> 0.0
+                    }
+                }
+                return 0.0
+            }
+            "str" -> {
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == '(') {
+                    pos++
+                    skipWhitespaceAndComments()
+                    // Just consume all args and return 0 (string result in numeric context)
+                    while (pos < input.length && input[pos] != ')') {
+                        parseExpression()
+                        skipWhitespaceAndComments()
+                        if (pos < input.length && input[pos] == ',') pos++
+                        skipWhitespaceAndComments()
+                    }
+                    if (pos < input.length && input[pos] == ')') pos++
+                }
+                return 0.0
+            }
+        }
+
+        // Check user-defined functions
+        if (functions.containsKey(id)) {
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == '(') {
+                return callFunction(id)
+            }
+        }
+
+        // Check if this is an unknown function call — consume args
+        skipWhitespaceAndComments()
+        if (pos < input.length && input[pos] == '(') {
+            pos++
+            skipToCloseParen()
+            return 0.0
+        }
+
+        // Array/string indexing
+        if (pos < input.length && input[pos] == '[') {
+            val varVal = vars[id]
+            pos++ // skip [
+            val index = parseExpression().toInt()
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ']') pos++
+            return when (varVal) {
+                is ScadValue.Vec -> {
+                    if (index in varVal.value.indices) varVal.value[index].toDouble()
+                    else 0.0
+                }
+                is ScadValue.Str -> 0.0 // string char - no numeric meaning
+                else -> 0.0
+            }
+        }
+
+        // Variable lookup
+        return vars[id]?.toDouble() ?: 0.0
+    }
+
+    /**
+     * Parse expression that returns ScadValue (used for len() args, array indexing, etc.)
+     */
+    private fun parseExpressionValueInner(): ScadValue {
+        skipWhitespaceAndComments()
+        if (pos >= input.length) return ScadValue.Num(0.0)
+
+        // String literal
+        if (input[pos] == '"') {
+            return ScadValue.Str(parseStringLiteral())
+        }
+
+        // Array literal
+        if (input[pos] == '[') {
+            return parseArrayValue()
+        }
+
+        // Try to resolve as identifier directly to get its ScadValue
+        val savedPos = pos
+        val id = parseIdentifier()
+        if (id != null) {
+            skipWhitespaceAndComments()
+            // Check for indexing
+            if (pos < input.length && input[pos] == '[') {
+                val varVal = vars[id]
+                pos++ // skip [
+                val index = parseExpression().toInt()
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == ']') pos++
+                return when (varVal) {
+                    is ScadValue.Vec -> {
+                        if (index in varVal.value.indices) varVal.value[index]
+                        else ScadValue.Undef
+                    }
+                    is ScadValue.Str -> {
+                        if (index in varVal.value.indices)
+                            ScadValue.Str(varVal.value[index].toString())
+                        else ScadValue.Undef
+                    }
+                    else -> ScadValue.Undef
+                }
+            }
+            // Check if it's a function call
+            if (pos < input.length && input[pos] == '(') {
+                // Restore and parse as expression
+                pos = savedPos
+                return ScadValue.Num(parseExpression())
+            }
+            // Variable lookup returning full value
+            val v = vars[id]
+            if (v != null) return v
+            // It might be a constant
+            return when (id) {
+                "true" -> ScadValue.Bool(true)
+                "false" -> ScadValue.Bool(false)
+                else -> ScadValue.Num(0.0)
+            }
+        }
+
+        // Fallback to numeric
+        pos = savedPos
+        return ScadValue.Num(parseExpression())
+    }
+
+    /**
+     * Call a user-defined function.
+     */
+    private fun callFunction(name: String): Double {
+        val funcDef = functions[name] ?: return 0.0
+        skipWhitespaceAndComments()
+        if (pos >= input.length || input[pos] != '(') return 0.0
+        pos++ // skip (
+
+        // Parse arguments
+        val args = mutableListOf<ScadValue>()
+        skipWhitespaceAndComments()
+        while (pos < input.length && input[pos] != ')') {
+            args.add(parseExpressionValueForFuncArg())
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ',') pos++
+            skipWhitespaceAndComments()
+        }
+        if (pos < input.length && input[pos] == ')') pos++
+
+        // Evaluate the function body with params bound
+        return evalFunctionBody(funcDef, args)
+    }
+
+    private fun parseExpressionValueForFuncArg(): ScadValue {
+        skipWhitespaceAndComments()
+        if (pos >= input.length) return ScadValue.Num(0.0)
+        if (input[pos] == '"') return ScadValue.Str(parseStringLiteral())
+        if (input[pos] == '[') return parseArrayValue()
+        return ScadValue.Num(parseExpression())
+    }
+
+    private fun evalFunctionBody(funcDef: FunctionDefinition, args: List<ScadValue>): Double {
+        checkTimeout()
+        val subParser = OpenSCADParser()
+        subParser.parseStartTime = this.parseStartTime
+        subParser.vars.putAll(vars)
+        subParser.modules.putAll(modules)
+        subParser.functions.putAll(functions)
+
+        // Bind parameters
+        for (i in funcDef.params.indices) {
+            val paramName = funcDef.params[i]
+            val value = if (i < args.size) args[i]
+            else {
+                // Try default value
+                val def = funcDef.defaults.getOrNull(i)
+                if (def != null) {
+                    val defParser = OpenSCADParser()
+                    defParser.parseStartTime = parseStartTime
+                    defParser.vars.putAll(subParser.vars)
+                    defParser.functions.putAll(functions)
+                    defParser.input = def
+                    defParser.pos = 0
+                    ScadValue.Num(defParser.parseExpression())
+                } else ScadValue.Num(0.0)
+            }
+            subParser.vars[paramName] = value
+        }
+
+        subParser.input = funcDef.body
+        subParser.pos = 0
+        return subParser.parseExpression()
+    }
+
+    /**
+     * Evaluate a function call returning ScadValue (for string indexing in functions).
+     */
+    private fun callFunctionValue(name: String): ScadValue {
+        val funcDef = functions[name] ?: return ScadValue.Num(0.0)
+        skipWhitespaceAndComments()
+        if (pos >= input.length || input[pos] != '(') return ScadValue.Num(0.0)
+        pos++ // skip (
+
+        val args = mutableListOf<ScadValue>()
+        skipWhitespaceAndComments()
+        while (pos < input.length && input[pos] != ')') {
+            args.add(parseExpressionValueForFuncArg())
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ',') pos++
+            skipWhitespaceAndComments()
+        }
+        if (pos < input.length && input[pos] == ')') pos++
+
+        return ScadValue.Num(evalFunctionBody(funcDef, args))
+    }
+
+    private fun parseVarArgFunc(op: (Double, Double) -> Double): Double {
+        skipWhitespaceAndComments()
+        if (pos >= input.length || input[pos] != '(') return 0.0
+        pos++
+        val values = mutableListOf<Double>()
+        skipWhitespaceAndComments()
+        while (pos < input.length && input[pos] != ')') {
+            values.add(parseExpression())
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ',') pos++
+            skipWhitespaceAndComments()
+        }
+        if (pos < input.length && input[pos] == ')') pos++
+        return if (values.isEmpty()) 0.0
+        else values.reduce(op)
+    }
+
+    private fun parseFunctionArg(): Double {
+        skipWhitespaceAndComments()
+        if (pos < input.length && input[pos] == '(') {
+            pos++
+            val result = parseExpression()
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ')') pos++
+            return result
+        }
+        return 0.0
+    }
+
+    // --- Geometry parsing ---
 
     private fun parseCube(): SceneNode {
         skipWhitespaceAndComments()
@@ -96,37 +915,26 @@ class OpenSCADParser {
         if (pos < input.length && input[pos] == '[') {
             val vec = parseVector()
             if (vec.size >= 3) {
-                sizeX = vec[0]
-                sizeY = vec[1]
-                sizeZ = vec[2]
+                sizeX = vec[0]; sizeY = vec[1]; sizeZ = vec[2]
             }
         } else {
-            // Check for named parameters or single number
             val params = parseNamedParams()
             if (params.containsKey("size")) {
-                sizeX = params["size"] ?: 1.0
-                sizeY = sizeX
-                sizeZ = sizeX
-            } else {
+                sizeX = params["size"] ?: 1.0; sizeY = sizeX; sizeZ = sizeX
+            } else if (pos < input.length && input[pos] != ')') {
                 val size = parseExpression()
-                sizeX = size
-                sizeY = size
-                sizeZ = size
+                sizeX = size; sizeY = size; sizeZ = size
             }
         }
 
         skipWhitespaceAndComments()
-        // Check for center parameter
         if (pos < input.length && input[pos] == ',') {
-            pos++
-            skipWhitespaceAndComments()
+            pos++; skipWhitespaceAndComments()
             val paramCheck = input.substring(pos)
             if (paramCheck.startsWith("center")) {
-                pos += "center".length
-                skipWhitespaceAndComments()
+                pos += "center".length; skipWhitespaceAndComments()
                 if (pos < input.length && input[pos] == '=') {
-                    pos++
-                    skipWhitespaceAndComments()
+                    pos++; skipWhitespaceAndComments()
                     center = parseBooleanValue()
                 }
             } else {
@@ -136,14 +944,13 @@ class OpenSCADParser {
 
         skipToCloseParen()
         skipSemicolon()
-
         return SceneNode.Cube(sizeX, sizeY, sizeZ, center)
     }
 
     private fun parseSphere(): SceneNode {
         skipWhitespaceAndComments()
         if (pos >= input.length || input[pos] != '(') {
-            return SceneNode.Sphere(1.0)
+            return SceneNode.Sphere(1.0, getSegments())
         }
         pos++
 
@@ -152,20 +959,12 @@ class OpenSCADParser {
 
         if (pos < input.length && input[pos] != ')') {
             val paramStr = input.substring(pos)
-            if (paramStr.startsWith("r") && !paramStr.startsWith("r=").not()) {
-                val match = Regex("^r\\s*=\\s*").find(paramStr)
-                if (match != null) {
-                    pos += match.value.length
-                    radius = parseExpression()
-                } else {
-                    radius = parseExpression()
-                }
-            } else if (paramStr.startsWith("d")) {
-                val match = Regex("^d\\s*=\\s*").find(paramStr)
-                if (match != null) {
-                    pos += match.value.length
-                    radius = parseExpression() / 2.0
-                }
+            val rMatch = Regex("^r\\s*=\\s*").find(paramStr)
+            val dMatch = Regex("^d\\s*=\\s*").find(paramStr)
+            if (rMatch != null) {
+                pos += rMatch.value.length; radius = parseExpression()
+            } else if (dMatch != null) {
+                pos += dMatch.value.length; radius = parseExpression() / 2.0
             } else {
                 radius = parseExpression()
             }
@@ -173,21 +972,17 @@ class OpenSCADParser {
 
         skipToCloseParen()
         skipSemicolon()
-
-        return SceneNode.Sphere(radius)
+        return SceneNode.Sphere(radius, getSegments())
     }
 
     private fun parseCylinder(): SceneNode {
         skipWhitespaceAndComments()
         if (pos >= input.length || input[pos] != '(') {
-            return SceneNode.Cylinder(1.0, 1.0, 1.0, false)
+            return SceneNode.Cylinder(1.0, 1.0, 1.0, false, getSegments())
         }
         pos++
 
-        var h = 1.0
-        var r1 = 1.0
-        var r2 = 1.0
-        var center = false
+        var h = 1.0; var r1 = 1.0; var r2 = 1.0; var center = false
 
         skipWhitespaceAndComments()
         val paramsStr = extractParenContent()
@@ -204,8 +999,7 @@ class OpenSCADParser {
         }
 
         skipSemicolon()
-
-        return SceneNode.Cylinder(h, r1, r2, center)
+        return SceneNode.Cylinder(h, r1, r2, center, getSegments())
     }
 
     private fun parseTransform(type: String): SceneNode? {
@@ -228,9 +1022,7 @@ class OpenSCADParser {
                 pos += namedMatch.value.length
                 if (pos < input.length && input[pos] == '[') {
                     val parsedVec = parseVector()
-                    for (i in parsedVec.indices.take(3)) {
-                        vec[i] = parsedVec[i]
-                    }
+                    for (i in parsedVec.indices.take(3)) { vec[i] = parsedVec[i] }
                 }
             } else {
                 val value = parseExpression()
@@ -258,8 +1050,7 @@ class OpenSCADParser {
     private fun parseCSGOperation(type: String): SceneNode? {
         skipWhitespaceAndComments()
         if (pos < input.length && input[pos] == '(') {
-            pos++
-            skipToCloseParen()
+            pos++; skipToCloseParen()
         }
         skipWhitespaceAndComments()
 
@@ -282,15 +1073,8 @@ class OpenSCADParser {
         skipWhitespaceAndComments()
 
         if (pos < input.length && input[pos] == '"') {
-            pos++
-            val colorName = StringBuilder()
-            while (pos < input.length && input[pos] != '"') {
-                colorName.append(input[pos])
-                pos++
-            }
-            if (pos < input.length) pos++
-
-            val color = getNamedColor(colorName.toString())
+            val colorName = parseStringLiteral()
+            val color = getNamedColor(colorName)
             r = color[0]; g = color[1]; b = color[2]
         } else if (pos < input.length && input[pos] == '[') {
             val vec = parseVector()
@@ -329,18 +1113,15 @@ class OpenSCADParser {
         skipWhitespaceAndComments()
         var radius = 1.0
         if (pos < input.length && input[pos] == '(') {
-            pos++
-            skipWhitespaceAndComments()
+            pos++; skipWhitespaceAndComments()
             if (pos < input.length && input[pos] != ')') {
                 val paramStr = input.substring(pos)
                 val rMatch = Regex("^r\\s*=\\s*").find(paramStr)
                 val dMatch = Regex("^d\\s*=\\s*").find(paramStr)
                 if (rMatch != null) {
-                    pos += rMatch.value.length
-                    radius = parseExpression()
+                    pos += rMatch.value.length; radius = parseExpression()
                 } else if (dMatch != null) {
-                    pos += dMatch.value.length
-                    radius = parseExpression() / 2.0
+                    pos += dMatch.value.length; radius = parseExpression() / 2.0
                 } else {
                     radius = parseExpression()
                 }
@@ -348,35 +1129,28 @@ class OpenSCADParser {
             skipToCloseParen()
         }
         skipSemicolon()
-        return SceneNode.Circle(radius)
+        return SceneNode.Circle(radius, getSegments())
     }
 
     private fun parseSquare(): SceneNode {
         skipWhitespaceAndComments()
-        var sizeX = 1.0
-        var sizeY = 1.0
-        var center = false
+        var sizeX = 1.0; var sizeY = 1.0; var center = false
         if (pos < input.length && input[pos] == '(') {
-            pos++
-            skipWhitespaceAndComments()
+            pos++; skipWhitespaceAndComments()
             if (pos < input.length && input[pos] == '[') {
                 val vec = parseVector()
                 if (vec.size >= 2) { sizeX = vec[0]; sizeY = vec[1] }
             } else if (pos < input.length && input[pos] != ')') {
-                sizeX = parseExpression()
-                sizeY = sizeX
+                sizeX = parseExpression(); sizeY = sizeX
             }
             skipWhitespaceAndComments()
             if (pos < input.length && input[pos] == ',') {
-                pos++
-                skipWhitespaceAndComments()
+                pos++; skipWhitespaceAndComments()
                 val rest = input.substring(pos)
                 if (rest.startsWith("center")) {
-                    pos += "center".length
-                    skipWhitespaceAndComments()
+                    pos += "center".length; skipWhitespaceAndComments()
                     if (pos < input.length && input[pos] == '=') {
-                        pos++
-                        skipWhitespaceAndComments()
+                        pos++; skipWhitespaceAndComments()
                         center = parseBooleanValue()
                     }
                 }
@@ -391,8 +1165,7 @@ class OpenSCADParser {
         skipWhitespaceAndComments()
         val points = mutableListOf<Pair<Double, Double>>()
         if (pos < input.length && input[pos] == '(') {
-            pos++
-            skipWhitespaceAndComments()
+            pos++; skipWhitespaceAndComments()
             val paramStr = input.substring(pos)
             val pointsMatch = Regex("^points\\s*=\\s*").find(paramStr)
             if (pointsMatch != null) {
@@ -405,9 +1178,7 @@ class OpenSCADParser {
                     if (input[pos] == '[') {
                         val vec = parseVector()
                         if (vec.size >= 2) points.add(Pair(vec[0], vec[1]))
-                    } else {
-                        pos++
-                    }
+                    } else { pos++ }
                     skipWhitespaceAndComments()
                     if (pos < input.length && input[pos] == ',') pos++
                     skipWhitespaceAndComments()
@@ -420,7 +1191,179 @@ class OpenSCADParser {
         return SceneNode.Polygon(points)
     }
 
+    /**
+     * Parse text() call — returns a placeholder square approximating character bounding box.
+     */
+    private fun parseText(): SceneNode {
+        skipWhitespaceAndComments()
+        var size = 5.5
+        if (pos < input.length && input[pos] == '(') {
+            pos++; skipWhitespaceAndComments()
+            // Parse params: first positional is text content, then named params
+            val paramsStr = extractParenContent()
+            val params = parseParamString(paramsStr)
+            size = params["size"] ?: 5.5
+        }
+        skipSemicolon()
+        // Placeholder: single character bounding box
+        return SceneNode.Square(size * 0.6, size, false)
+    }
+
+    // --- Module and For Loop support ---
+
+    private fun parseModuleCall(name: String): SceneNode? {
+        val moduleDef = modules[name] ?: return null
+
+        // Parse arguments
+        val args = mutableListOf<ScadValue>()
+        if (pos < input.length && input[pos] == '(') {
+            pos++; skipWhitespaceAndComments()
+            while (pos < input.length && input[pos] != ')') {
+                args.add(parseExpressionValueForFuncArg())
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == ',') pos++
+                skipWhitespaceAndComments()
+            }
+            if (pos < input.length && input[pos] == ')') pos++
+        }
+        skipSemicolon()
+
+        // Parse the module body using a sub-parser with context
+        val subParser = OpenSCADParser()
+        subParser.parseStartTime = this.parseStartTime
+        subParser.vars.putAll(vars)
+        subParser.modules.putAll(modules)
+        subParser.functions.putAll(functions)
+
+        // Bind parameters
+        for (i in moduleDef.params.indices) {
+            val paramName = moduleDef.params[i]
+            val value = if (i < args.size) args[i]
+            else {
+                val def = moduleDef.defaults.getOrNull(i)
+                if (def != null) {
+                    val defParser = OpenSCADParser()
+                    defParser.parseStartTime = parseStartTime
+                    defParser.vars.putAll(subParser.vars)
+                    defParser.functions.putAll(functions)
+                    defParser.input = def
+                    defParser.pos = 0
+                    defParser.parseExpressionValue()
+                } else ScadValue.Num(0.0)
+            }
+            subParser.vars[paramName] = value
+        }
+
+        val result = subParser.parseWithContext(moduleDef.body)
+
+        return if (result is SceneNode.Group && result.children.size == 1) {
+            result.children[0]
+        } else {
+            result
+        }
+    }
+
+    private fun parseForLoop(): SceneNode? {
+        skipWhitespaceAndComments()
+        if (pos >= input.length || input[pos] != '(') return null
+        pos++ // skip (
+
+        skipWhitespaceAndComments()
+        val loopVar = parseIdentifier() ?: run { skipToCloseParen(); return null }
+        skipWhitespaceAndComments()
+        if (pos < input.length && input[pos] == '=') pos++
+        skipWhitespaceAndComments()
+
+        var rangeStart = 0.0; var rangeStep = 1.0; var rangeEnd = 0.0
+
+        if (pos < input.length && input[pos] == '[') {
+            pos++ // skip [
+            skipWhitespaceAndComments()
+            rangeStart = parseExpression()
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ':') {
+                pos++; skipWhitespaceAndComments()
+                val second = parseExpression()
+                skipWhitespaceAndComments()
+                if (pos < input.length && input[pos] == ':') {
+                    pos++; skipWhitespaceAndComments()
+                    rangeStep = second
+                    rangeEnd = parseExpression()
+                } else {
+                    rangeEnd = second
+                }
+            }
+            skipWhitespaceAndComments()
+            if (pos < input.length && input[pos] == ']') pos++
+        }
+
+        skipToCloseParen()
+        skipWhitespaceAndComments()
+
+        // Capture the loop body source
+        val bodySource: String
+        if (pos < input.length && input[pos] == '{') {
+            pos++
+            val start = pos
+            var depth = 1
+            while (pos < input.length && depth > 0) {
+                when (input[pos]) { '{' -> depth++; '}' -> depth-- }
+                if (depth > 0) pos++
+            }
+            bodySource = input.substring(start, pos)
+            if (pos < input.length) pos++
+        } else {
+            val start = pos
+            var depth = 0
+            while (pos < input.length) {
+                when (input[pos]) {
+                    '(', '{', '[' -> depth++
+                    ')', '}', ']' -> depth--
+                    ';' -> { if (depth <= 0) { pos++; break } }
+                }
+                pos++
+            }
+            bodySource = input.substring(start, pos)
+        }
+
+        // Unroll the loop
+        val children = mutableListOf<SceneNode>()
+        if (rangeStep > 0 && rangeStart <= rangeEnd || rangeStep < 0 && rangeStart >= rangeEnd) {
+            var i = rangeStart
+            val maxIterations = 1000
+            var count = 0
+            while ((rangeStep > 0 && i <= rangeEnd) || (rangeStep < 0 && i >= rangeEnd)) {
+                if (count++ > maxIterations) break
+                checkTimeout()
+
+                val subParser = OpenSCADParser()
+                subParser.parseStartTime = this.parseStartTime
+                subParser.vars.putAll(vars)
+                subParser.vars[loopVar] = ScadValue.Num(i)
+                subParser.modules.putAll(modules)
+                subParser.functions.putAll(functions)
+                val result = subParser.parseWithContext(bodySource)
+
+                if (result is SceneNode.Group) {
+                    children.addAll(result.children)
+                } else {
+                    children.add(result)
+                }
+
+                i += rangeStep
+            }
+        }
+
+        return if (children.isEmpty()) null
+        else if (children.size == 1) children[0]
+        else SceneNode.Group(children)
+    }
+
     // --- Helper methods ---
+
+    private fun getSegments(): Int {
+        return vars["\$fn"]?.toDouble()?.toInt()?.coerceIn(3, 360) ?: 32
+    }
 
     private fun parseBlock(): List<SceneNode> {
         skipWhitespaceAndComments()
@@ -468,132 +1411,17 @@ class OpenSCADParser {
         return values
     }
 
-    private fun parseExpression(): Double {
-        skipWhitespaceAndComments()
-        var result = parseTerm()
-
-        while (pos < input.length) {
-            skipWhitespaceAndComments()
-            if (pos >= input.length) break
-            when (input[pos]) {
-                '+' -> { pos++; result += parseTerm() }
-                '-' -> { pos++; result -= parseTerm() }
-                else -> break
-            }
-        }
-        return result
-    }
-
-    private fun parseTerm(): Double {
-        skipWhitespaceAndComments()
-        var result = parseFactor()
-
-        while (pos < input.length) {
-            skipWhitespaceAndComments()
-            if (pos >= input.length) break
-            when (input[pos]) {
-                '*' -> { pos++; result *= parseFactor() }
-                '/' -> { pos++; val d = parseFactor(); if (d != 0.0) result /= d }
-                '%' -> { pos++; val d = parseFactor(); if (d != 0.0) result %= d }
-                else -> break
-            }
-        }
-        return result
-    }
-
-    private fun parseFactor(): Double {
-        skipWhitespaceAndComments()
-        if (pos >= input.length) return 0.0
-
-        // Unary minus
-        if (input[pos] == '-') {
-            pos++
-            return -parseFactor()
-        }
-
-        // Parenthesized expression
-        if (input[pos] == '(') {
-            pos++
-            val result = parseExpression()
-            skipWhitespaceAndComments()
-            if (pos < input.length && input[pos] == ')') pos++
-            return result
-        }
-
-        // Number
-        if (input[pos].isDigit() || input[pos] == '.') {
-            return parseNumber()
-        }
-
-        // Variable or function
-        val id = parseIdentifier()
-        if (id != null) {
-            when (id) {
-                "true" -> return 1.0
-                "false" -> return 0.0
-                "PI" -> return PI
-                "sin" -> return sin(parseFunctionArg() * PI / 180.0)
-                "cos" -> return cos(parseFunctionArg() * PI / 180.0)
-                "abs" -> return kotlin.math.abs(parseFunctionArg())
-                "sqrt" -> return kotlin.math.sqrt(parseFunctionArg())
-                "pow" -> {
-                    skipWhitespaceAndComments()
-                    if (pos < input.length && input[pos] == '(') {
-                        pos++
-                        val base = parseExpression()
-                        skipWhitespaceAndComments()
-                        if (pos < input.length && input[pos] == ',') pos++
-                        val exp = parseExpression()
-                        skipWhitespaceAndComments()
-                        if (pos < input.length && input[pos] == ')') pos++
-                        return Math.pow(base, exp)
-                    }
-                    return 0.0
-                }
-                "max", "min" -> {
-                    skipWhitespaceAndComments()
-                    if (pos < input.length && input[pos] == '(') {
-                        pos++
-                        val a = parseExpression()
-                        skipWhitespaceAndComments()
-                        if (pos < input.length && input[pos] == ',') pos++
-                        val b = parseExpression()
-                        skipWhitespaceAndComments()
-                        if (pos < input.length && input[pos] == ')') pos++
-                        return if (id == "max") maxOf(a, b) else minOf(a, b)
-                    }
-                    return 0.0
-                }
-            }
-            // Variable lookup
-            return variables[id] ?: 0.0
-        }
-
-        return 0.0
-    }
-
-    private fun parseFunctionArg(): Double {
-        skipWhitespaceAndComments()
-        if (pos < input.length && input[pos] == '(') {
-            pos++
-            val result = parseExpression()
-            skipWhitespaceAndComments()
-            if (pos < input.length && input[pos] == ')') pos++
-            return result
-        }
-        return 0.0
-    }
-
     private fun parseNumber(): Double {
         val start = pos
         while (pos < input.length && (input[pos].isDigit() || input[pos] == '.')) pos++
-        // Handle scientific notation
         if (pos < input.length && (input[pos] == 'e' || input[pos] == 'E')) {
             pos++
             if (pos < input.length && (input[pos] == '+' || input[pos] == '-')) pos++
             while (pos < input.length && input[pos].isDigit()) pos++
         }
-        return input.substring(start, pos).toDoubleOrNull() ?: 0.0
+        val numStr = input.substring(start, pos)
+        // Avoid regex-based toDoubleOrNull by using try/catch with parseDouble
+        return try { java.lang.Double.parseDouble(numStr) } catch (_: NumberFormatException) { 0.0 }
     }
 
     private fun parseIdentifier(): String? {
@@ -638,13 +1466,10 @@ class OpenSCADParser {
             if (eqIdx > 0) {
                 val name = trimmed.substring(0, eqIdx).trim()
                 val valueStr = trimmed.substring(eqIdx + 1).trim()
-                val value = valueStr.toDoubleOrNull()
-                    ?: if (valueStr == "true") 1.0
-                    else if (valueStr == "false") 0.0
-                    else 0.0
+                val value = evaluateParamValue(valueStr)
                 params[name] = value
             } else {
-                val value = trimmed.toDoubleOrNull() ?: 0.0
+                val value = evaluateParamValue(trimmed)
                 params["_$positionalIndex"] = value
                 positionalIndex++
             }
@@ -653,12 +1478,34 @@ class OpenSCADParser {
         return params
     }
 
+    private fun evaluateParamValue(valueStr: String): Double {
+        if (valueStr == "true") return 1.0
+        if (valueStr == "false") return 0.0
+        if (valueStr.startsWith("\"")) return 0.0 // string param
+        valueStr.toDoubleOrNull()?.let { return it }
+        val subParser = OpenSCADParser()
+        subParser.parseStartTime = this.parseStartTime
+        subParser.vars.putAll(vars)
+        subParser.functions.putAll(functions)
+        subParser.input = valueStr
+        subParser.pos = 0
+        return try {
+            subParser.parseExpression()
+        } catch (e: Exception) {
+            0.0
+        }
+    }
+
     private fun splitParams(s: String): List<String> {
         val parts = mutableListOf<String>()
         var depth = 0
         var current = StringBuilder()
-        for (ch in s) {
+        var inString = false
+        for (i in s.indices) {
+            val ch = s[i]
             when {
+                ch == '"' && (i == 0 || s[i-1] != '\\') -> { inString = !inString; current.append(ch) }
+                inString -> current.append(ch)
                 ch == '[' || ch == '(' -> { depth++; current.append(ch) }
                 ch == ']' || ch == ')' -> { depth--; current.append(ch) }
                 ch == ',' && depth == 0 -> { parts.add(current.toString()); current = StringBuilder() }
@@ -716,7 +1563,7 @@ class OpenSCADParser {
         var depth = 0
         while (pos < input.length) {
             when (input[pos]) {
-                '(' , '{', '[' -> depth++
+                '(', '{', '[' -> depth++
                 ')', '}', ']' -> {
                     if (depth > 0) depth--
                     else { pos++; return }

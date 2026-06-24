@@ -12,7 +12,9 @@ data class TestCase(
     init {
         require(name.length <= 64) { "Name exceeds 64 characters" }
         require(name.matches(Regex("[a-z0-9_]+"))) { "Name must be lowercase alphanumeric + underscores" }
-        require(code.length <= 2048) { "Code exceeds 2048 characters" }
+        if (category != "custom") {
+            require(code.length <= 2048) { "Code exceeds 2048 characters" }
+        }
         require(category in VALID_CATEGORIES) { "Invalid category: $category" }
     }
 
@@ -24,7 +26,8 @@ data class TestCase(
             "csg_operations",
             "combined_operations",
             "variables_expressions",
-            "edge_cases"
+            "edge_cases",
+            "custom"
         )
     }
 }

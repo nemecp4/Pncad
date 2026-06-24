@@ -10,14 +10,14 @@ import kotlin.math.sqrt
 /**
  * Generates sanitized STL filenames from benchmark test case metadata.
  *
- * The filename pattern is: {category}_{testName}_{engineName}.stl
+ * The filename pattern is: {category}_{testName}.stl
  * - Lowercased
  * - Non-alphanumeric characters (except underscore and dot) replaced with underscore
  * - Consecutive underscores collapsed to a single underscore
  */
 object StlFileNamer {
-    fun generateFilename(category: String, testName: String, engineName: String): String {
-        val raw = "${category}_${testName}_${engineName}.stl"
+    fun generateFilename(category: String, testName: String): String {
+        val raw = "${category}_${testName}.stl"
         return raw.lowercase()
             .replace(Regex("[^a-z0-9_.]"), "_")
             .replace(Regex("_+"), "_")
@@ -67,8 +67,7 @@ class StlOutputWriter(
 
         val filename = StlFileNamer.generateFilename(
             result.testCase.category,
-            result.testCase.name,
-            result.engineName
+            result.testCase.name
         )
         val outputFile = File(outputDir, filename)
 

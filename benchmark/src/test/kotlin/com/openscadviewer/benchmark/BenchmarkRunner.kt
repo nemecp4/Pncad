@@ -32,6 +32,14 @@ class BenchmarkRunner(
     private val parser = OpenSCADParser()
     private val stlWriter = StlOutputWriter(stlOutputDir)
 
+    /**
+     * Returns the directory containing reference STL files from classpath resources.
+     */
+    private fun getReferenceDir(): File? {
+        val url = javaClass.classLoader.getResource("expected_results") ?: return null
+        return File(url.toURI())
+    }
+
     fun run(): List<BenchmarkResult> {
         val results = mutableListOf<BenchmarkResult>()
 
@@ -170,5 +178,30 @@ class BenchmarkRunner(
         } else {
             code
         }
+    }
+
+    /**
+     * Compares generated STL files against reference STL files in expected_results/.
+     * Only compares test cases in the "custom" category (which always have a reference).
+     */
+    fun compareWithReferences(results: List<BenchmarkResult>): List<StlComparator.ComparisonResult> {
+        val referenceDir = getReferenceDir() ?: return emptyList()
+        val comparisons = mutableListOf<StlComparator.ComparisonResult>()
+
+        for (result in results) {
+            if (result.status != ResultStatus.SUCCESS) continue
+            if (result.testCase.category != "custom") continue
+
+            val stlFilename = StlFileNamer.generateFilename(result.testCase.category, result.testCase.name)
+            val generatedFile = File(stlOutputDir, stlFilename)
+            val referenceFile = File(referenceDir, stlFilename)
+
+            val comparison = StlComparator.compare(generatedFile, referenceFile, result.testCase.name)
+            if (comparison != null) {
+                comparisons.add(comparison)
+            }
+        }
+
+        return comparisons
     }
 }

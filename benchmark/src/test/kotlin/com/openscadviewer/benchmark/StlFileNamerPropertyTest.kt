@@ -14,7 +14,7 @@ class StlFileNamerPropertyTest {
     /**
      * Feature: engine-modularization-and-benchmarks, Property 8: STL filename sanitization
      *
-     * For any category string, test case name, and engine name, the generated STL filename must:
+     * For any category string and test case name, the generated STL filename must:
      * - Be lowercase
      * - Contain only [a-z0-9_.] characters
      * - Have no consecutive underscores
@@ -23,24 +23,22 @@ class StlFileNamerPropertyTest {
      * Validates: Requirements 5.2
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 8: STL filename sanitization")
+    @Tag("property-8-stl-filename-sanitization")
     fun outputIsAlwaysLowercase(
         @ForAll("categories") category: String,
-        @ForAll("testNames") testName: String,
-        @ForAll("engineNames") engineName: String
+        @ForAll("testNames") testName: String
     ) {
-        val filename = StlFileNamer.generateFilename(category, testName, engineName)
+        val filename = StlFileNamer.generateFilename(category, testName)
         assertEquals(filename, filename.lowercase(), "Filename must be lowercase: $filename")
     }
 
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 8: STL filename sanitization")
+    @Tag("property-8-stl-filename-sanitization")
     fun outputContainsOnlyValidCharacters(
         @ForAll("categories") category: String,
-        @ForAll("testNames") testName: String,
-        @ForAll("engineNames") engineName: String
+        @ForAll("testNames") testName: String
     ) {
-        val filename = StlFileNamer.generateFilename(category, testName, engineName)
+        val filename = StlFileNamer.generateFilename(category, testName)
         assertTrue(
             filename.matches(Regex("[a-z0-9_.]*")),
             "Filename contains invalid characters: '$filename'"
@@ -48,13 +46,12 @@ class StlFileNamerPropertyTest {
     }
 
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 8: STL filename sanitization")
+    @Tag("property-8-stl-filename-sanitization")
     fun outputHasNoConsecutiveUnderscores(
         @ForAll("categories") category: String,
-        @ForAll("testNames") testName: String,
-        @ForAll("engineNames") engineName: String
+        @ForAll("testNames") testName: String
     ) {
-        val filename = StlFileNamer.generateFilename(category, testName, engineName)
+        val filename = StlFileNamer.generateFilename(category, testName)
         assertFalse(
             filename.contains("__"),
             "Filename must not contain consecutive underscores: '$filename'"
@@ -62,13 +59,12 @@ class StlFileNamerPropertyTest {
     }
 
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 8: STL filename sanitization")
+    @Tag("property-8-stl-filename-sanitization")
     fun outputAlwaysEndsWithStl(
         @ForAll("categories") category: String,
-        @ForAll("testNames") testName: String,
-        @ForAll("engineNames") engineName: String
+        @ForAll("testNames") testName: String
     ) {
-        val filename = StlFileNamer.generateFilename(category, testName, engineName)
+        val filename = StlFileNamer.generateFilename(category, testName)
         assertTrue(
             filename.endsWith(".stl"),
             "Filename must end with .stl: '$filename'"
@@ -111,22 +107,6 @@ class StlFileNamerPropertyTest {
                 .withChars(' ', '-', '_', '.', '!', '@', '#', '(', ')')
                 .ofMinLength(1)
                 .ofMaxLength(40)
-        )
-    }
-
-    @Provide
-    fun engineNames(): Arbitrary<String> {
-        return Arbitraries.oneOf(
-            // Realistic engine names
-            Arbitraries.of("kotlin", "cgal", "KotlinEngine", "CGAL-Engine"),
-            // Arbitrary strings with mixed characters
-            Arbitraries.strings()
-                .withCharRange('A', 'Z')
-                .withCharRange('a', 'z')
-                .withCharRange('0', '9')
-                .withChars(' ', '-', '_', '.', '!', '@')
-                .ofMinLength(1)
-                .ofMaxLength(20)
         )
     }
 }

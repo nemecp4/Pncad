@@ -31,13 +31,16 @@ class BenchmarkTest {
 
         val results = runner.run()
 
-        // Print timing summary
-        TimingSummaryFormatter.format(results)
+        // Compare with reference STL files
+        val comparisons = runner.compareWithReferences(results)
 
-        // Assert result count: 50 test cases × number of engines
+        // Print timing summary with comparisons
+        TimingSummaryFormatter.format(results, comparisons)
+
+        // Assert result count: testCases × number of engines
         // Both available and unavailable engines produce results (SKIPPED for unavailable)
-        val expectedResultCount = 50 * engines.size
+        val expectedResultCount = TestCaseRegistry.allCases.size * engines.size
         assertEquals(expectedResultCount, results.size,
-            "Expected $expectedResultCount results (50 test cases × ${engines.size} engines), got ${results.size}")
+            "Expected $expectedResultCount results (${TestCaseRegistry.allCases.size} test cases × ${engines.size} engines), got ${results.size}")
     }
 }

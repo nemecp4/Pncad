@@ -103,7 +103,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 4.1, 4.2
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 4: Timing measurement invariant")
+    @Tag("property-4-timing-measurement-invariant")
     fun recordedTimeMustBeNonNegative(
         @ForAll("geometryTestCases") testCases: List<TestCase>
     ) {
@@ -135,7 +135,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 4.1, 4.2
      */
     @Property(tries = 20)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 4: Timing measurement invariant")
+    @Tag("property-4-timing-measurement-invariant")
     fun timeoutResultTimeMustEqualTimeoutMs(
         @ForAll("singleGeometryTestCase") testCase: TestCase
     ) {
@@ -173,7 +173,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 4.4
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 5: Unavailable engine produces all-skipped results")
+    @Tag("property-5-unavailable-engine-skipped")
     fun unavailableEngineProducesAllSkippedResults(
         @ForAll("geometryTestCases") testCases: List<TestCase>
     ) {
@@ -211,7 +211,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 4.4
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 5: Unavailable engine produces all-skipped results")
+    @Tag("property-5-unavailable-engine-skipped")
     fun mixedEnginesUnavailableAlwaysSkipped(
         @ForAll("geometryTestCases") testCases: List<TestCase>
     ) {
@@ -251,7 +251,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 4.5
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 6: Error recording and continuation")
+    @Tag("property-6-error-recording-continuation")
     fun errorDoesNotStopExecution(
         @ForAll("geometryTestCases") testCases: List<TestCase>
     ) {
@@ -283,7 +283,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 4.5
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 6: Error recording and continuation")
+    @Tag("property-6-error-recording-continuation")
     fun totalResultCountEqualsTestCasesTimesEngines(
         @ForAll("geometryTestCases") testCases: List<TestCase>
     ) {
@@ -322,7 +322,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 5.4
      */
     @Property(tries = 20)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 9: No STL output for non-success results")
+    @Tag("property-9-no-stl-for-non-success")
     fun noStlForTimeoutResults(
         @ForAll("singleGeometryTestCase") testCase: TestCase
     ) {
@@ -355,7 +355,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 5.4
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 9: No STL output for non-success results")
+    @Tag("property-9-no-stl-for-non-success")
     fun noStlForComputeErrorResults(
         @ForAll("geometryTestCases") testCases: List<TestCase>
     ) {
@@ -385,7 +385,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 5.4
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 9: No STL output for non-success results")
+    @Tag("property-9-no-stl-for-non-success")
     fun noStlForSkippedResults(
         @ForAll("geometryTestCases") testCases: List<TestCase>
     ) {
@@ -415,7 +415,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 5.4
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 9: No STL output for non-success results")
+    @Tag("property-9-no-stl-for-non-success")
     fun noStlForParseErrorResults(
         @ForAll("noGeometryTestCases") testCases: List<TestCase>
     ) {
@@ -449,7 +449,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 7.1, 7.5
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 10: Parse error detection and handling")
+    @Tag("property-10-parse-error-detection")
     fun noGeometrySnippetProducesParseError(
         @ForAll("noGeometryTestCases") testCases: List<TestCase>
     ) {
@@ -487,7 +487,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 7.1, 7.5
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 10: Parse error detection and handling")
+    @Tag("property-10-parse-error-detection")
     fun parseErrorRecordedForAllEngines(
         @ForAll("singleNoGeometryTestCase") testCase: TestCase
     ) {
@@ -530,7 +530,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 7.2
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 11: Error snippet truncation")
+    @Tag("property-11-error-snippet-truncation")
     fun errorSnippetTruncatedTo256Chars(
         @ForAll("noGeometryTestCases") testCases: List<TestCase>
     ) {
@@ -563,7 +563,7 @@ class BenchmarkRunnerTest {
      * Validates: Requirements 7.2
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 11: Error snippet truncation")
+    @Tag("property-11-error-snippet-truncation")
     fun longSnippetErrorDetailExactly256Chars(
         @ForAll("longNoGeometryTestCases") testCases: List<TestCase>
     ) {

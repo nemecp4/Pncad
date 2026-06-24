@@ -22,7 +22,7 @@ class CliArgParserPropertyTest {
      * Validates: Requirements 2.1, 2.2, 2.3, 2.4
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 1: CLI argument validation")
+    @Tag("property-1-cli-argument-validation")
     fun zeroPositionalArgsAlwaysFails(
         @ForAll("zeroPositionalArgs") args: Array<String>
     ) {
@@ -31,7 +31,7 @@ class CliArgParserPropertyTest {
     }
 
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 1: CLI argument validation")
+    @Tag("property-1-cli-argument-validation")
     fun onePositionalArgAlwaysFails(
         @ForAll("onePositionalArgs") args: Array<String>
     ) {
@@ -40,7 +40,7 @@ class CliArgParserPropertyTest {
     }
 
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 1: CLI argument validation")
+    @Tag("property-1-cli-argument-validation")
     fun emptyArgsAlwaysFails() {
         val result = CliArgParser.parse(emptyArray())
         assertTrue(result.isFailure, "Expected failure with empty args")
@@ -55,7 +55,7 @@ class CliArgParserPropertyTest {
      * Validates: Requirements 2.6
      */
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 2: Timeout flag parsing")
+    @Tag("property-2-timeout-flag-parsing")
     fun validTimeoutIsAccepted(
         @ForAll @IntRange(min = 1, max = 3600) timeout: Int
     ) {
@@ -66,7 +66,7 @@ class CliArgParserPropertyTest {
     }
 
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 2: Timeout flag parsing")
+    @Tag("property-2-timeout-flag-parsing")
     fun timeoutBelowRangeIsRejected(
         @ForAll @IntRange(min = Int.MIN_VALUE, max = 0) timeout: Int
     ) {
@@ -76,7 +76,7 @@ class CliArgParserPropertyTest {
     }
 
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 2: Timeout flag parsing")
+    @Tag("property-2-timeout-flag-parsing")
     fun timeoutAboveRangeIsRejected(
         @ForAll @IntRange(min = 3601, max = Int.MAX_VALUE) timeout: Int
     ) {
@@ -86,7 +86,7 @@ class CliArgParserPropertyTest {
     }
 
     @Property(tries = 100)
-    @Tag("Feature: engine-modularization-and-benchmarks, Property 2: Timeout flag parsing")
+    @Tag("property-2-timeout-flag-parsing")
     fun nonIntegerTimeoutIsRejected(
         @ForAll("nonIntegerStrings") value: String
     ) {
