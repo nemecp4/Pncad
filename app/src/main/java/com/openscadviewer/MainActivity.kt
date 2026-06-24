@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var consoleRecyclerView: RecyclerView
     private lateinit var scrollToBottomButton: ImageButton
     private lateinit var consoleCloseButton: ImageButton
+    private lateinit var consoleCopyButton: ImageButton
     private lateinit var consoleCancelButton: MaterialButton
 
     private lateinit var consoleViewModel: ConsoleViewModel
@@ -116,6 +117,7 @@ class MainActivity : AppCompatActivity() {
         consoleRecyclerView = findViewById(R.id.consoleRecyclerView)
         scrollToBottomButton = findViewById(R.id.scrollToBottomButton)
         consoleCloseButton = findViewById(R.id.consoleCloseButton)
+        consoleCopyButton = findViewById(R.id.consoleCopyButton)
         consoleCancelButton = findViewById(R.id.consoleCancelButton)
     }
 
@@ -234,6 +236,15 @@ translate([0, 0, 20]) {
             if (consoleAdapter.itemCount > 0) {
                 consoleRecyclerView.scrollToPosition(consoleAdapter.itemCount - 1)
             }
+        }
+
+        // Wire copy button to copy all log entries to clipboard
+        consoleCopyButton.setOnClickListener {
+            val logText = consoleAdapter.getAllLogText()
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("Console Log", logText)
+            clipboard.setPrimaryClip(clip)
+            android.widget.Toast.makeText(this, "Log copied to clipboard", android.widget.Toast.LENGTH_SHORT).show()
         }
 
         // Detect manual scroll-up via OnScrollListener to pause auto-scroll

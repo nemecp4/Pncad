@@ -10,6 +10,14 @@ import org.json.JSONObject
  */
 object SceneSerializer {
     fun toJson(node: SceneNode): String {
+        return nodeToJson(node).toString()
+    }
+
+    /**
+     * Serialize with CGAL-specific preprocessing (expands linear_extrude compound children).
+     * Used by CgalComputeEngine before sending to native code.
+     */
+    fun toJsonForCgal(node: SceneNode): String {
         val preprocessed = preprocessForCgal(node)
         return nodeToJson(preprocessed).toString()
     }
@@ -79,7 +87,7 @@ object SceneSerializer {
             is SceneNode.Sphere -> {
                 obj.put("type", "sphere")
                 obj.put("radius", node.radius)
-                obj.put("segments", node.segments.coerceAtMost(64))
+                obj.put("segments", node.segments.coerceAtMost(48))
             }
             is SceneNode.Cylinder -> {
                 obj.put("type", "cylinder")
@@ -87,12 +95,12 @@ object SceneSerializer {
                 obj.put("radius1", node.radius1)
                 obj.put("radius2", node.radius2)
                 obj.put("center", node.center)
-                obj.put("segments", node.segments.coerceAtMost(64))
+                obj.put("segments", node.segments.coerceAtMost(48))
             }
             is SceneNode.Circle -> {
                 obj.put("type", "circle")
                 obj.put("radius", node.radius)
-                obj.put("segments", node.segments.coerceAtMost(64))
+                obj.put("segments", node.segments.coerceAtMost(48))
             }
             is SceneNode.Square -> {
                 obj.put("type", "square")

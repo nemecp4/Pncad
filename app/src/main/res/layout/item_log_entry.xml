@@ -16,6 +16,7 @@
         android:fontFamily="monospace"
         android:textSize="12sp"
         android:textColor="#B0BEC5"
+        android:textIsSelectable="true"
         android:paddingEnd="6dp"
         tools:text="12:34:56.789" />
 
@@ -26,6 +27,7 @@
         android:fontFamily="monospace"
         android:textSize="12sp"
         android:textColor="#B0BEC5"
+        android:textIsSelectable="true"
         android:paddingEnd="6dp"
         tools:text="INFO" />
 
@@ -37,6 +39,7 @@
         android:fontFamily="monospace"
         android:textSize="12sp"
         android:textColor="#B0BEC5"
+        android:textIsSelectable="true"
         android:ellipsize="none"
         android:singleLine="false"
         tools:text="Parsing OpenSCAD source..." />

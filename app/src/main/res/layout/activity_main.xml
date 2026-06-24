@@ -172,6 +172,17 @@
                         android:textStyle="bold" />
 
                     <ImageButton
+                        android:id="@+id/consoleCopyButton"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Copy log"
+                        android:src="@android:drawable/ic_menu_edit"
+                        android:scaleType="centerInside"
+                        app:tint="@color/white" />
+
+                    <ImageButton
                         android:id="@+id/scrollToBottomButton"
                         android:layout_width="36dp"
                         android:layout_height="36dp"

@@ -104,7 +104,9 @@ object TestCaseRegistry {
 
     val custom: List<TestCase> = listOf(
         TestCase(name = "sun", category = "custom", code = loadCode("custom", "sun")),
-        TestCase(name = "controll_rose", category = "custom", code = loadCode("custom", "controll_rose"))
+        TestCase(name = "controll_rose", category = "custom", code = loadCode("custom", "controll_rose")),
+        TestCase(name = "tower", category = "custom", code = loadCode("custom", "tower"))
+
     )   
 
     // --- Aggregate list of all 50 test cases ---

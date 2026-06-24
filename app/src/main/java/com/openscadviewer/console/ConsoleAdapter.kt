@@ -39,6 +39,18 @@ class ConsoleAdapter : ListAdapter<LogEntry, ConsoleAdapter.ViewHolder>(DiffCall
         holder.message.setTextColor(color)
     }
 
+    /**
+     * Returns all log entries as a single string for clipboard copying.
+     */
+    fun getAllLogText(): String {
+        val sb = StringBuilder()
+        for (i in 0 until itemCount) {
+            val entry = getItem(i)
+            sb.append("${entry.formattedTimestamp()} ${entry.severity.name} ${entry.message}\n")
+        }
+        return sb.toString().trimEnd()
+    }
+
     companion object DiffCallback : DiffUtil.ItemCallback<LogEntry>() {
         override fun areItemsTheSame(old: LogEntry, new: LogEntry) =
             old.timestamp == new.timestamp && old.message == new.message

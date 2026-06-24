@@ -26,7 +26,7 @@ class CgalComputeEngine : ComputeEngine {
 
         progress?.onProgress("Parsing OpenSCAD source...")
 
-        val json = SceneSerializer.toJson(scene)
+        val json = SceneSerializer.toJsonForCgal(scene)
         val jsonBytes = json.toByteArray(Charsets.UTF_8)
         val nodeCount = countNodes(scene)
 
