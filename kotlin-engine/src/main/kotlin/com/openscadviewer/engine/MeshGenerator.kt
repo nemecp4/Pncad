@@ -1,5 +1,6 @@
 package com.openscadviewer.engine
 
+import com.openscadviewer.engine.csg.Csg
 import com.openscadviewer.parser.SceneNode
 import kotlin.math.*
 
@@ -103,14 +104,21 @@ class MeshGenerator {
                 }
             }
             is SceneNode.Difference -> {
-                // Simplified: render all children (proper CSG would require BSP)
-                for (child in node.children) {
-                    generateNode(child, vertices, normals, colors, transform)
+                if (node.children.size < 2) {
+                    for (child in node.children) {
+                        generateNode(child, vertices, normals, colors, transform)
+                    }
+                } else {
+                    generateCsgDifference(node.children, vertices, normals, colors, transform)
                 }
             }
             is SceneNode.Intersection -> {
-                for (child in node.children) {
-                    generateNode(child, vertices, normals, colors, transform)
+                if (node.children.size < 2) {
+                    for (child in node.children) {
+                        generateNode(child, vertices, normals, colors, transform)
+                    }
+                } else {
+                    generateCsgIntersection(node.children, vertices, normals, colors, transform)
                 }
             }
             is SceneNode.Group -> {
@@ -255,9 +263,9 @@ class MeshGenerator {
             val sideNormal1 = normalize(floatArrayOf(cos1, sin1, (r1 - r2) / h))
             val sideNormal2 = normalize(floatArrayOf(cos2, sin2, (r1 - r2) / h))
 
-            // Side triangles
-            addTransformedTriangle(vertices, normals, colors, transform, b1, t1, t2, sideNormal1, sideNormal1, sideNormal2)
-            addTransformedTriangle(vertices, normals, colors, transform, b1, t2, b2, sideNormal1, sideNormal2, sideNormal2)
+            // Side triangles — outward-facing winding (CCW when viewed from outside)
+            addTransformedTriangle(vertices, normals, colors, transform, b1, b2, t2, sideNormal1, sideNormal2, sideNormal2)
+            addTransformedTriangle(vertices, normals, colors, transform, b1, t2, t1, sideNormal1, sideNormal2, sideNormal1)
 
             // Bottom cap
             val center_b = floatArrayOf(0f, 0f, zOffset)
@@ -489,6 +497,82 @@ class MeshGenerator {
                 else emptyList()
             }
             else -> emptyList()
+        }
+    }
+
+    // --- CSG methods ---
+
+    private fun generateCsgDifference(
+        children: List<SceneNode>,
+        vertices: MutableList<Float>,
+        normals: MutableList<Float>,
+        colors: MutableList<Float>,
+        transform: Matrix4
+    ) {
+        // Generate meshes for each child separately
+        val meshes = children.map { child ->
+            val childVerts = mutableListOf<Float>()
+            val childNorms = mutableListOf<Float>()
+            val childColors = mutableListOf<Float>()
+            generateNode(child, childVerts, childNorms, childColors, Matrix4.identity())
+            Triple(childVerts.toFloatArray(), childNorms.toFloatArray(), childColors.toFloatArray())
+        }
+
+        // First child is the base
+        var result = Csg.fromTriangles(meshes[0].first, meshes[0].second)
+
+        // Subtract subsequent children
+        for (i in 1 until meshes.size) {
+            val other = Csg.fromTriangles(meshes[i].first, meshes[i].second)
+            if (other.polygons.isNotEmpty()) {
+                result = result.subtract(other)
+            }
+        }
+
+        // Convert result back to triangle arrays and apply transform
+        val (resultVerts, resultNorms) = result.toTriangles()
+        for (i in 0 until resultVerts.size / 3) {
+            val base = i * 3
+            val p = transform.transformPoint(floatArrayOf(resultVerts[base], resultVerts[base+1], resultVerts[base+2]))
+            val n = transform.transformNormal(floatArrayOf(resultNorms[base], resultNorms[base+1], resultNorms[base+2]))
+            vertices.addAll(p.toList())
+            normals.addAll(n.toList())
+            colors.addAll(currentColor.toList())
+        }
+    }
+
+    private fun generateCsgIntersection(
+        children: List<SceneNode>,
+        vertices: MutableList<Float>,
+        normals: MutableList<Float>,
+        colors: MutableList<Float>,
+        transform: Matrix4
+    ) {
+        val meshes = children.map { child ->
+            val childVerts = mutableListOf<Float>()
+            val childNorms = mutableListOf<Float>()
+            val childColors = mutableListOf<Float>()
+            generateNode(child, childVerts, childNorms, childColors, Matrix4.identity())
+            Triple(childVerts.toFloatArray(), childNorms.toFloatArray(), childColors.toFloatArray())
+        }
+
+        var result = Csg.fromTriangles(meshes[0].first, meshes[0].second)
+
+        for (i in 1 until meshes.size) {
+            val other = Csg.fromTriangles(meshes[i].first, meshes[i].second)
+            if (other.polygons.isNotEmpty()) {
+                result = result.intersect(other)
+            }
+        }
+
+        val (resultVerts, resultNorms) = result.toTriangles()
+        for (i in 0 until resultVerts.size / 3) {
+            val base = i * 3
+            val p = transform.transformPoint(floatArrayOf(resultVerts[base], resultVerts[base+1], resultVerts[base+2]))
+            val n = transform.transformNormal(floatArrayOf(resultNorms[base], resultNorms[base+1], resultNorms[base+2]))
+            vertices.addAll(p.toList())
+            normals.addAll(n.toList())
+            colors.addAll(currentColor.toList())
         }
     }
 

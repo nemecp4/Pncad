@@ -8,6 +8,5 @@
 .externalNativeBuild
 .cxx
 local.properties
-/app/build
-/benchmark/build/
+*/build
 .build-deps

@@ -9,4 +9,8 @@
 .cxx
 local.properties
 /app/build
+/benchmark/build/
+/cgal-engine/build/
+kotlin-engine/build/
+shared-base/build/
 .build-deps
