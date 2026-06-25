@@ -31,6 +31,15 @@ class SceneRenderer : GLSurfaceView.Renderer {
     var cameraPanX = 0f
     var cameraPanY = 0f
 
+    // Display settings (set from UI thread, read from GL thread)
+    @Volatile var showAxes: Boolean = false
+    @Volatile var showWireframe: Boolean = false
+    @Volatile var backgroundColorRgba: FloatArray = floatArrayOf(0.18f, 0.18f, 0.18f, 1.0f)
+
+    // Dedicated drawers for axes and wireframe overlays
+    private val axesDrawer = AxesDrawer()
+    private val wireframeDrawer = WireframeDrawer()
+
     // Bounding box for auto-fitting
     private var boundingMin = floatArrayOf(-1f, -1f, -1f)
     private var boundingMax = floatArrayOf(1f, 1f, 1f)
@@ -130,6 +139,9 @@ class SceneRenderer : GLSurfaceView.Renderer {
             cameraPanX = -(boundingMin[0] + boundingMax[0]) / 2f
             cameraPanY = -(boundingMin[1] + boundingMax[1]) / 2f
         }
+
+        // Provide mesh data to wireframe drawer for edge rendering
+        vertexBuffer?.let { wireframeDrawer.setMeshData(it, vertexCount) }
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
@@ -146,6 +158,10 @@ class SceneRenderer : GLSurfaceView.Renderer {
             GLES20.glAttachShader(it, fragmentShader)
             GLES20.glLinkProgram(it)
         }
+
+        // Initialize dedicated drawers on the GL thread
+        axesDrawer.initialize()
+        wireframeDrawer.initialize()
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -155,6 +171,8 @@ class SceneRenderer : GLSurfaceView.Renderer {
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        val bg = backgroundColorRgba
+        GLES20.glClearColor(bg[0], bg[1], bg[2], bg[3])
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
         if (vertexCount == 0 || vertexBuffer == null) return
@@ -220,6 +238,17 @@ class SceneRenderer : GLSurfaceView.Renderer {
         GLES20.glDisableVertexAttribArray(posHandle)
         GLES20.glDisableVertexAttribArray(normHandle)
         GLES20.glDisableVertexAttribArray(colorHandle)
+
+        // Draw axes overlay when enabled
+        if (showAxes) {
+            axesDrawer.draw(mvpMatrix.m, AxesDrawer.computeAxisLength(boundingMin, boundingMax))
+        }
+
+        // Draw wireframe overlay when enabled
+        if (showWireframe) {
+            wireframeDrawer.backgroundColorRgba = backgroundColorRgba
+            wireframeDrawer.draw(mvpMatrix.m)
+        }
     }
 
     private fun loadShader(type: Int, shaderCode: String): Int {

@@ -130,6 +130,9 @@
                 android:layout_gravity="center"
                 android:visibility="gone" />
 
+            <!-- View controls overlay for camera snap buttons -->
+            <include layout="@layout/view_controls_overlay" />
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCancelCompute"
                 android:layout_width="wrap_content"

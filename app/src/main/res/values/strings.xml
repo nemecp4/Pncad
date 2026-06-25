@@ -14,4 +14,15 @@
     <string name="menu_engine_kotlin">Simple (Kotlin)</string>
     <string name="menu_engine_cgal">Advanced (CGAL)</string>
     <string name="menu_engine_cgal_unavailable">Advanced (CGAL) (unavailable)</string>
+
+    <string name="menu_settings">Settings</string>
+
+    <!-- Preferences -->
+    <string name="pref_category_display">Display</string>
+    <string name="pref_show_axes_title">Show Coordinate Axes</string>
+    <string name="pref_show_axes_summary">Display X/Y/Z orientation lines at the origin</string>
+    <string name="pref_show_wireframe_title">Show Wireframe</string>
+    <string name="pref_show_wireframe_summary">Overlay mesh edges on the shaded model</string>
+    <string name="pref_background_color_title">Background Color</string>
+    <string name="pref_background_color_summary">Choose preview background</string>
 </resources>

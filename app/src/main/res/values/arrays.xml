@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="bg_color_labels">
+        <item>Dark Grey</item>
+        <item>White</item>
+        <item>Yellow</item>
+    </string-array>
+
+    <string-array name="bg_color_values">
+        <item>dark_grey</item>
+        <item>white</item>
+        <item>yellow</item>
+    </string-array>
+</resources>

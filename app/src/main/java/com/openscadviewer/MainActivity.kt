@@ -2,6 +2,7 @@ package com.openscadviewer
 
 import android.app.Activity
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import android.opengl.GLSurfaceView
 import android.os.Bundle
@@ -15,6 +16,7 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
+import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
@@ -34,6 +36,9 @@ import com.openscadviewer.parser.OpenSCADParser
 import com.openscadviewer.renderer.SceneRenderer
 import com.openscadviewer.renderer.STLExporter
 import com.openscadviewer.renderer.TouchHandler
+import com.openscadviewer.settings.PreferenceKeys
+import com.openscadviewer.settings.SettingsActivity
+import com.openscadviewer.settings.mapBackgroundColor
 import kotlinx.coroutines.*
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -71,6 +76,7 @@ class MainActivity : AppCompatActivity() {
     private var sceneRenderer: SceneRenderer? = null
     private var touchHandler: TouchHandler? = null
     private var syntaxHighlighter: SyntaxHighlighter? = null
+    private lateinit var viewControlsOverlay: LinearLayout
 
     private val parser = OpenSCADParser()
     private lateinit var engineManager: EngineManager
@@ -82,6 +88,25 @@ class MainActivity : AppCompatActivity() {
     private var currentTabPosition: Int = 0
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+        when (key) {
+            PreferenceKeys.KEY_SHOW_AXES -> {
+                sceneRenderer?.showAxes = prefs.getBoolean(key, PreferenceKeys.DEFAULT_SHOW_AXES)
+                glSurfaceView?.requestRender()
+            }
+            PreferenceKeys.KEY_SHOW_WIREFRAME -> {
+                sceneRenderer?.showWireframe = prefs.getBoolean(key, PreferenceKeys.DEFAULT_SHOW_WIREFRAME)
+                glSurfaceView?.requestRender()
+            }
+            PreferenceKeys.KEY_BACKGROUND_COLOR -> {
+                sceneRenderer?.backgroundColorRgba = mapBackgroundColor(
+                    prefs.getString(key, PreferenceKeys.DEFAULT_BACKGROUND_COLOR) ?: PreferenceKeys.DEFAULT_BACKGROUND_COLOR
+                )
+                glSurfaceView?.requestRender()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,6 +120,7 @@ class MainActivity : AppCompatActivity() {
         setupButtons()
         setupCodeEditor()
         setupConsole()
+        setupViewControls()
 
         // Check if opened with a .scad file intent
         handleIncomingIntent(intent)
@@ -119,6 +145,10 @@ class MainActivity : AppCompatActivity() {
         consoleCloseButton = findViewById(R.id.consoleCloseButton)
         consoleCopyButton = findViewById(R.id.consoleCopyButton)
         consoleCancelButton = findViewById(R.id.consoleCancelButton)
+
+        // View controls overlay — hidden until preview tab is active and mesh is loaded
+        viewControlsOverlay = findViewById(R.id.viewControlsOverlay)
+        viewControlsOverlay.visibility = View.GONE
     }
 
     private fun setupToolbar() {
@@ -137,6 +167,8 @@ class MainActivity : AppCompatActivity() {
                     val shouldShow = consoleViewModel.isVisible.value == true
                     consoleContainer.visibility = if (shouldShow) View.VISIBLE else View.GONE
                 }
+
+                updateViewControlsVisibility()
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
@@ -148,6 +180,28 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnPreview).setOnClickListener { generatePreview() }
         findViewById<View>(R.id.btnRender).setOnClickListener { renderAndExportSTL() }
         btnCancelCompute.setOnClickListener { cancelComputation() }
+    }
+
+    private fun setupViewControls() {
+        findViewById<ImageButton>(R.id.btnViewTop).setOnClickListener { snapCamera(90f, 0f) }
+        findViewById<ImageButton>(R.id.btnViewFront).setOnClickListener { snapCamera(0f, 0f) }
+        findViewById<ImageButton>(R.id.btnViewLeft).setOnClickListener { snapCamera(0f, 90f) }
+        findViewById<ImageButton>(R.id.btnViewRight).setOnClickListener { snapCamera(0f, -90f) }
+    }
+
+    private fun snapCamera(rotX: Float, rotY: Float) {
+        sceneRenderer?.let { renderer ->
+            renderer.cameraRotX = rotX
+            renderer.cameraRotY = rotY
+            // preserve cameraDistance and cameraPanX/Y
+            glSurfaceView?.requestRender()
+        }
+    }
+
+    private fun updateViewControlsVisibility() {
+        val isPreviewTab = currentTabPosition == 1
+        val hasMesh = currentMesh != null
+        viewControlsOverlay.visibility = if (isPreviewTab && hasMesh) View.VISIBLE else View.GONE
     }
 
     private fun setupCodeEditor() {
@@ -286,6 +340,10 @@ translate([0, 0, 20]) {
                 engineManager.selectedType = EngineType.CGAL
                 item.isChecked = true
                 statusBar.text = "Engine: Advanced (CGAL)"
+                true
+            }
+            R.id.menu_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -495,11 +553,14 @@ translate([0, 0, 20]) {
                 }
             }
             previewContainer.addView(glSurfaceView, 0)
+            // Apply stored preferences to the newly created renderer before first frame
+            applyStoredPreferences()
         }
 
         previewPlaceholder.visibility = View.GONE
         sceneRenderer?.setMeshData(meshResult.vertices, meshResult.normals, meshResult.colors)
         glSurfaceView?.requestRender()
+        updateViewControlsVisibility()
     }
 
     // --- STL Export ---
@@ -641,16 +702,42 @@ translate([0, 0, 20]) {
     override fun onResume() {
         super.onResume()
         glSurfaceView?.onResume()
+        PreferenceManager.getDefaultSharedPreferences(this)
+            .registerOnSharedPreferenceChangeListener(prefListener)
+        applyStoredPreferences()
     }
 
     override fun onPause() {
         super.onPause()
         glSurfaceView?.onPause()
+        PreferenceManager.getDefaultSharedPreferences(this)
+            .unregisterOnSharedPreferenceChangeListener(prefListener)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         syntaxHighlighter?.detach()
         coroutineScope.cancel()
+    }
+
+    /**
+     * Reads all stored display preferences and applies them to the SceneRenderer.
+     * Called on startup and when resuming to ensure settings persist across restarts.
+     */
+    private fun applyStoredPreferences() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        sceneRenderer?.let { renderer ->
+            renderer.showAxes = prefs.getBoolean(
+                PreferenceKeys.KEY_SHOW_AXES, PreferenceKeys.DEFAULT_SHOW_AXES
+            )
+            renderer.showWireframe = prefs.getBoolean(
+                PreferenceKeys.KEY_SHOW_WIREFRAME, PreferenceKeys.DEFAULT_SHOW_WIREFRAME
+            )
+            renderer.backgroundColorRgba = mapBackgroundColor(
+                prefs.getString(PreferenceKeys.KEY_BACKGROUND_COLOR, PreferenceKeys.DEFAULT_BACKGROUND_COLOR)
+                    ?: PreferenceKeys.DEFAULT_BACKGROUND_COLOR
+            )
+            glSurfaceView?.requestRender()
+        }
     }
 }

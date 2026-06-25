@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="@string/pref_category_display">
+        <SwitchPreferenceCompat
+            android:key="pref_show_axes"
+            android:title="@string/pref_show_axes_title"
+            android:summary="@string/pref_show_axes_summary"
+            android:defaultValue="false" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_show_wireframe"
+            android:title="@string/pref_show_wireframe_title"
+            android:summary="@string/pref_show_wireframe_summary"
+            android:defaultValue="false" />
+
+        <ListPreference
+            android:key="pref_background_color"
+            android:title="@string/pref_background_color_title"
+            android:summary="@string/pref_background_color_summary"
+            android:entries="@array/bg_color_labels"
+            android:entryValues="@array/bg_color_values"
+            android:defaultValue="dark_grey" />
+    </PreferenceCategory>
+
+</PreferenceScreen>
