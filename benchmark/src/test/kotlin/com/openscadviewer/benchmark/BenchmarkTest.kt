@@ -37,6 +37,11 @@ class BenchmarkTest {
         // Print timing summary with comparisons
         TimingSummaryFormatter.format(results, comparisons)
 
+        // Assert STL comparisons are within 15% tolerance
+        if (comparisons.isNotEmpty()) {
+            StlComparisonAssert.assertAllWithinTolerance(comparisons, 0.15)
+        }
+
         // Assert result count: testCases × number of engines
         // Both available and unavailable engines produce results (SKIPPED for unavailable)
         val expectedResultCount = TestCaseRegistry.allCases.size * engines.size

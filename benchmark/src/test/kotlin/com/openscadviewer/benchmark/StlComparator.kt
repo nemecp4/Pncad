@@ -15,10 +15,34 @@ object StlComparator {
         val testName: String,
         val generatedTriangles: Int,
         val expectedTriangles: Int,
-        val match: Boolean
+        val generatedFileSize: Long,
+        val expectedFileSize: Long,
+        val trianglesMatch: Boolean,
+        val fileSizeMatch: Boolean
     ) {
-        val ratio: Double get() = if (expectedTriangles > 0) generatedTriangles.toDouble() / expectedTriangles else 0.0
-        val percentDiff: Double get() = if (expectedTriangles > 0) ((generatedTriangles - expectedTriangles).toDouble() / expectedTriangles * 100.0) else 0.0
+        val triangleRatio: Double
+            get() = if (expectedTriangles > 0) generatedTriangles.toDouble() / expectedTriangles else 0.0
+
+        val trianglePercentDiff: Double
+            get() = if (expectedTriangles > 0)
+                ((generatedTriangles - expectedTriangles).toDouble() / expectedTriangles * 100.0)
+            else 0.0
+
+        val fileSizeRatio: Double
+            get() = if (expectedFileSize > 0) generatedFileSize.toDouble() / expectedFileSize else 0.0
+
+        val fileSizePercentDiff: Double
+            get() = if (expectedFileSize > 0)
+                ((generatedFileSize - expectedFileSize).toDouble() / expectedFileSize * 100.0)
+            else 0.0
+
+        fun withinTolerance(tolerance: Double = 0.15): Boolean {
+            val triangleOk = expectedTriangles == 0 ||
+                kotlin.math.abs(trianglePercentDiff) <= tolerance * 100.0
+            val sizeOk = expectedFileSize == 0L ||
+                kotlin.math.abs(fileSizePercentDiff) <= tolerance * 100.0
+            return triangleOk && sizeOk
+        }
     }
 
     /**
@@ -41,17 +65,30 @@ object StlComparator {
 
     /**
      * Compares a generated STL against a reference STL file.
-     * Returns null if no reference file exists for this test case.
+     * Returns null if either file doesn't exist or is unreadable.
      */
-    fun compare(generatedFile: File, referenceFile: File, testName: String): ComparisonResult? {
+    fun compare(generatedFile: File, referenceFile: File, testName: String, tolerance: Double = 0.15): ComparisonResult? {
         if (!referenceFile.exists()) return null
-        val generated = readTriangleCount(generatedFile) ?: return null
-        val expected = readTriangleCount(referenceFile) ?: return null
+        if (!generatedFile.exists()) return null
+
+        val genTriangles = readTriangleCount(generatedFile) ?: return null
+        val expTriangles = readTriangleCount(referenceFile) ?: return null
+        val genSize = generatedFile.length()
+        val expSize = referenceFile.length()
+
+        val trianglePercentDiff = if (expTriangles > 0)
+            kotlin.math.abs((genTriangles - expTriangles).toDouble() / expTriangles * 100.0) else 0.0
+        val sizePercentDiff = if (expSize > 0)
+            kotlin.math.abs((genSize - expSize).toDouble() / expSize * 100.0) else 0.0
+
         return ComparisonResult(
             testName = testName,
-            generatedTriangles = generated,
-            expectedTriangles = expected,
-            match = generated == expected
+            generatedTriangles = genTriangles,
+            expectedTriangles = expTriangles,
+            generatedFileSize = genSize,
+            expectedFileSize = expSize,
+            trianglesMatch = trianglePercentDiff <= tolerance * 100.0,
+            fileSizeMatch = sizePercentDiff <= tolerance * 100.0
         )
     }
 }

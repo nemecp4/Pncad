@@ -47,14 +47,23 @@ object TimingSummaryFormatter {
         return buildString {
             appendLine("=== Reference STL Comparison ===")
             for (result in comparisons) {
-                val status = if (result.match) {
+                val status = if (result.trianglesMatch && result.fileSizeMatch) {
                     "\u2713 MATCH"
                 } else {
-                    val diff = result.percentDiff
-                    val direction = if (diff < 0) "fewer" else "more"
-                    "\u2717 ${"%.0f".format(kotlin.math.abs(diff))}% $direction triangles"
+                    val parts = mutableListOf<String>()
+                    if (!result.trianglesMatch) {
+                        val diff = result.trianglePercentDiff
+                        val direction = if (diff < 0) "fewer" else "more"
+                        parts.add("${"%.0f".format(kotlin.math.abs(diff))}% $direction triangles")
+                    }
+                    if (!result.fileSizeMatch) {
+                        val diff = result.fileSizePercentDiff
+                        val direction = if (diff < 0) "smaller" else "larger"
+                        parts.add("${"%.0f".format(kotlin.math.abs(diff))}% $direction file size")
+                    }
+                    "\u2717 ${parts.joinToString(", ")}"
                 }
-                appendLine("${result.testName}: ${result.generatedTriangles} triangles (generated) vs ${result.expectedTriangles} (expected) $status")
+                appendLine("${result.testName}: triangles ${result.generatedTriangles} vs ${result.expectedTriangles} | file size ${result.generatedFileSize} vs ${result.expectedFileSize} bytes  $status")
             }
         }.trimEnd()
     }
