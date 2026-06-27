@@ -10,7 +10,7 @@ import java.io.File
 class BenchmarkTest {
 
     @Test
-    fun `run all 50 test cases against available engines`() {
+    fun runAllBenchamrkTestCases() {
         val kotlinEngine = KotlinComputeEngine()
         val cgalEngine = CgalComputeEngine()
 

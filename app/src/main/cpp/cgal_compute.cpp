@@ -448,9 +448,9 @@ ComputeResult cgal_compute(const nlohmann::json& scene,
 
     std::string root_type = scene["type"].get<std::string>();
 
-    // Determine if root is a CSG node
+    // Determine if root is a CSG node (or group, which acts as implicit union)
     bool is_csg = (root_type == "union" || root_type == "difference" ||
-                   root_type == "intersection");
+                   root_type == "intersection" || root_type == "group");
 
     if (is_csg) {
         // Process CSG recursively

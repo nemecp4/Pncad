@@ -28,7 +28,7 @@ object SceneSerializer {
      * - Transforms inside LinearExtrude → moved outside: Rotate(LinearExtrude(primitive))
      */
     private fun preprocessForCgal(node: SceneNode): SceneNode {
-        val MAX_SEGMENTS = 48
+        val MAX_SEGMENTS = 250
         return when (node) {
             is SceneNode.Sphere -> SceneNode.Sphere(node.radius, node.segments.coerceAtMost(MAX_SEGMENTS))
             is SceneNode.Cylinder -> SceneNode.Cylinder(node.height, node.radius1, node.radius2, node.center, node.segments.coerceAtMost(MAX_SEGMENTS))

@@ -2,8 +2,10 @@ package com.openscadviewer.console
 
 import androidx.arch.core.executor.ArchTaskExecutor
 import androidx.arch.core.executor.TaskExecutor
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -31,6 +33,7 @@ class ProgressCallbackWiringTest {
 
     @AfterEach
     fun tearDown() {
+        viewModel.viewModelScope.cancel()
         ArchTaskExecutor.getInstance().setDelegate(null)
         Dispatchers.resetMain()
     }
