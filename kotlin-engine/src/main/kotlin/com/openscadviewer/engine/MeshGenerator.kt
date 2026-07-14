@@ -536,9 +536,21 @@ class MeshGenerator {
         // First child is the base
         var result = Csg.fromTriangles(meshes[0].first, meshes[0].second)
 
-        // Subtract subsequent children
+        // Subtract subsequent children.
+        // For Group/Union children with multiple sub-meshes, union them first
+        // before subtracting. This handles for-loop expansions correctly where
+        // multiple overlapping shapes should form one solid subtraction volume.
         for (i in 1 until meshes.size) {
-            val other = Csg.fromTriangles(meshes[i].first, meshes[i].second)
+            val childNode = children[i]
+            val other: Csg
+
+            if (isCompoundNode(childNode)) {
+                // Union the individual sub-meshes of this compound child
+                other = buildUnionedCsg(childNode)
+            } else {
+                other = Csg.fromTriangles(meshes[i].first, meshes[i].second)
+            }
+
             if (other.polygons.isNotEmpty()) {
                 result = result.subtract(other)
             }
@@ -553,6 +565,79 @@ class MeshGenerator {
             vertices.addAll(p.toList())
             normals.addAll(n.toList())
             colors.addAll(currentColor.toList())
+        }
+    }
+
+    /**
+     * Returns true if the node is a compound that contains multiple geometry children
+     * (e.g., Group, Union wrapping a for-loop expansion).
+     */
+    private fun isCompoundNode(node: SceneNode): Boolean {
+        return when (node) {
+            is SceneNode.Group -> node.children.size > 1
+            is SceneNode.Union -> node.children.size > 1
+            is SceneNode.Translate -> isCompoundNode(node.child)
+            is SceneNode.Rotate -> isCompoundNode(node.child)
+            is SceneNode.Scale -> isCompoundNode(node.child)
+            is SceneNode.Color -> isCompoundNode(node.child)
+            else -> false
+        }
+    }
+
+    /**
+     * Builds a CSG solid by unioning all sub-geometries of a compound node.
+     * Used for subtraction operands that contain multiple overlapping shapes
+     * (e.g., for-loop generated cubes that should form one cutting volume).
+     */
+    private fun buildUnionedCsg(node: SceneNode): Csg {
+        val leaves = collectLeafGeometries(node, Matrix4.identity())
+        if (leaves.isEmpty()) return Csg.fromTriangles(FloatArray(0), FloatArray(0))
+
+        var result = leaves[0]
+        for (i in 1 until leaves.size) {
+            if (leaves[i].polygons.isNotEmpty()) {
+                result = result.union(leaves[i])
+            }
+        }
+        return result
+    }
+
+    /**
+     * Recursively collects individual geometry CSG solids from a compound node,
+     * applying transforms as it descends.
+     */
+    private fun collectLeafGeometries(node: SceneNode, transform: Matrix4): List<Csg> {
+        return when (node) {
+            is SceneNode.Group -> node.children.flatMap { collectLeafGeometries(it, transform) }
+            is SceneNode.Union -> node.children.flatMap { collectLeafGeometries(it, transform) }
+            is SceneNode.Translate -> {
+                val t = transform.multiply(Matrix4.translation(node.x.toFloat(), node.y.toFloat(), node.z.toFloat()))
+                collectLeafGeometries(node.child, t)
+            }
+            is SceneNode.Rotate -> {
+                val t = transform
+                    .multiply(Matrix4.rotationZ(node.z.toFloat()))
+                    .multiply(Matrix4.rotationY(node.y.toFloat()))
+                    .multiply(Matrix4.rotationX(node.x.toFloat()))
+                collectLeafGeometries(node.child, t)
+            }
+            is SceneNode.Scale -> {
+                val t = transform.multiply(Matrix4.scale(node.x.toFloat(), node.y.toFloat(), node.z.toFloat()))
+                collectLeafGeometries(node.child, t)
+            }
+            is SceneNode.Color -> collectLeafGeometries(node.child, transform)
+            else -> {
+                // Leaf geometry — generate mesh and create CSG
+                val verts = mutableListOf<Float>()
+                val norms = mutableListOf<Float>()
+                val cols = mutableListOf<Float>()
+                generateNode(node, verts, norms, cols, transform)
+                if (verts.isNotEmpty()) {
+                    listOf(Csg.fromTriangles(verts.toFloatArray(), norms.toFloatArray()))
+                } else {
+                    emptyList()
+                }
+            }
         }
     }
 
