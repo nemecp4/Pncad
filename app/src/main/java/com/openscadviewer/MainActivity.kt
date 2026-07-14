@@ -53,13 +53,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var toolbar: MaterialToolbar
     private lateinit var codeEditor: EditText
     private lateinit var lineNumbers: TextView
-    private lateinit var viewFlipper: ViewFlipper
-    private lateinit var tabLayout: TabLayout
+    private var viewFlipper: ViewFlipper? = null
+    private var tabLayout: TabLayout? = null
     private lateinit var previewContainer: FrameLayout
     private lateinit var previewPlaceholder: TextView
     private lateinit var progressBar: ProgressBar
     private lateinit var statusBar: TextView
     private lateinit var btnCancelCompute: MaterialButton
+
+    private lateinit var viewModel: MainViewModel
+
+    private val isTabletLayout: Boolean by lazy {
+        findViewById<View>(R.id.paneDivider) != null
+    }
 
     // Console views
     private lateinit var consoleContainer: LinearLayout
@@ -86,6 +92,7 @@ class MainActivity : AppCompatActivity() {
     private var currentFileName: String = ""
     private var computeJob: Job? = null
     private var currentTabPosition: Int = 0
+    private var isFallbackSinglePane = false
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
@@ -112,9 +119,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        viewModel = ViewModelProvider(this)[MainViewModel::class.java]
         engineManager = EngineManager(this)
 
         initViews()
+        applyNarrowPaneFallback()
         setupToolbar()
         setupTabLayout()
         setupButtons()
@@ -124,19 +133,26 @@ class MainActivity : AppCompatActivity() {
 
         // Check if opened with a .scad file intent
         handleIncomingIntent(intent)
+
+        // Restore state from ViewModel after all setup is complete
+        restoreStateFromViewModel()
     }
 
     private fun initViews() {
         toolbar = findViewById(R.id.toolbar)
         codeEditor = findViewById(R.id.codeEditor)
         lineNumbers = findViewById(R.id.lineNumbers)
-        viewFlipper = findViewById(R.id.viewFlipper)
-        tabLayout = findViewById(R.id.tabLayout)
         previewContainer = findViewById(R.id.previewContainer)
         previewPlaceholder = findViewById(R.id.previewPlaceholder)
         progressBar = findViewById(R.id.progressBar)
         statusBar = findViewById(R.id.statusBar)
         btnCancelCompute = findViewById(R.id.btnCancelCompute)
+
+        // Only find TabLayout and ViewFlipper on phone layout
+        if (!isTabletLayout) {
+            viewFlipper = findViewById(R.id.viewFlipper)
+            tabLayout = findViewById(R.id.tabLayout)
+        }
 
         // Console views
         consoleContainer = findViewById(R.id.consoleContainer)
@@ -151,11 +167,47 @@ class MainActivity : AppCompatActivity() {
         viewControlsOverlay.visibility = View.GONE
     }
 
+    /**
+     * On tablet layouts, checks if the available width is too narrow for a usable split pane.
+     * If each pane would be under 200dp, hides the preview pane and divider so the code
+     * editor fills the screen (defensive fallback for multi-window on 600dp devices).
+     */
+    private fun applyNarrowPaneFallback() {
+        if (!isTabletLayout) return
+
+        val displayMetrics = resources.displayMetrics
+        val availableWidthDp = displayMetrics.widthPixels / displayMetrics.density
+
+        if (shouldFallbackToSinglePane(availableWidthDp, 2f)) {
+            isFallbackSinglePane = true
+
+            // Hide the preview pane and divider
+            val paneDivider = findViewById<View>(R.id.paneDivider)
+            paneDivider.visibility = View.GONE
+            previewContainer.visibility = View.GONE
+
+            // Make the code editor pane (the ScrollView sibling) fill the available space
+            val codePaneParent = paneDivider.parent as? LinearLayout
+            if (codePaneParent != null && codePaneParent.childCount > 0) {
+                val codePane = codePaneParent.getChildAt(0)
+                val params = codePane.layoutParams as? LinearLayout.LayoutParams
+                if (params != null) {
+                    params.weight = 1f
+                    params.width = 0
+                    codePane.layoutParams = params
+                }
+            }
+        }
+    }
+
     private fun setupToolbar() {
         setSupportActionBar(toolbar)
     }
 
     private fun setupTabLayout() {
+        val tabLayout = tabLayout ?: return
+        val viewFlipper = viewFlipper ?: return
+
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 val position = tab?.position ?: 0
@@ -199,9 +251,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateViewControlsVisibility() {
-        val isPreviewTab = currentTabPosition == 1
+        val isPreviewVisible = isTabletLayout || currentTabPosition == 1
         val hasMesh = currentMesh != null
-        viewControlsOverlay.visibility = if (isPreviewTab && hasMesh) View.VISIBLE else View.GONE
+        viewControlsOverlay.visibility = if (isPreviewVisible && hasMesh) View.VISIBLE else View.GONE
     }
 
     private fun setupCodeEditor() {
@@ -266,9 +318,10 @@ translate([0, 0, 20]) {
 
         // Observe isVisible LiveData to toggle consoleContainer visibility
         // Only show console when on the Preview tab (position 1) to avoid
-        // showing it on the Code tab during an active session
+        // showing it on the Code tab during an active session.
+        // On tablet, console should always show when visible since both panes are visible.
         consoleViewModel.isVisible.observe(this) { visible ->
-            val shouldShow = visible && currentTabPosition == 1
+            val shouldShow = visible && (isTabletLayout || currentTabPosition == 1)
             consoleContainer.visibility = if (shouldShow) View.VISIBLE else View.GONE
         }
 
@@ -473,8 +526,8 @@ translate([0, 0, 20]) {
             return
         }
 
-        // Switch to preview tab
-        tabLayout.getTabAt(1)?.select()
+        // Switch to preview tab (phone only; on tablet both panes are always visible)
+        tabLayout?.getTabAt(1)?.select()
 
         showComputeProgress()
         previewPlaceholder.visibility = View.GONE
@@ -699,6 +752,73 @@ translate([0, 0, 20]) {
         ).show()
     }
 
+    // --- State Save/Restore ---
+
+    /**
+     * Pushes all transient UI state into MainViewModel so it survives configuration changes.
+     * Called from onPause().
+     */
+    private fun saveStateToViewModel() {
+        viewModel.editorText = codeEditor.text?.toString() ?: ""
+        viewModel.cursorPosition = codeEditor.selectionStart
+        viewModel.currentFileName = currentFileName
+        viewModel.statusBarText = statusBar.text?.toString() ?: ""
+        viewModel.meshVertices = currentMesh?.vertices
+        viewModel.meshNormals = currentMesh?.normals
+        viewModel.meshColors = currentMesh?.colors
+        viewModel.triangleCount = currentMesh?.triangleCount ?: 0
+
+        // Camera state
+        sceneRenderer?.let { renderer ->
+            viewModel.cameraRotX = renderer.cameraRotX
+            viewModel.cameraRotY = renderer.cameraRotY
+            viewModel.cameraDistance = renderer.cameraDistance
+            viewModel.cameraPanX = renderer.cameraPanX
+            viewModel.cameraPanY = renderer.cameraPanY
+        }
+
+        // Computation state
+        viewModel.isComputing = computeJob?.isActive == true
+    }
+
+    /**
+     * Restores transient UI state from MainViewModel after a configuration change.
+     * Called at the end of onCreate() after all views and listeners are set up.
+     * Only restores if non-default state exists (editorText is not empty).
+     */
+    private fun restoreStateFromViewModel() {
+        if (viewModel.editorText.isEmpty()) return
+
+        // Restore editor text and cursor position
+        codeEditor.setText(viewModel.editorText)
+        val clampedCursor = minOf(viewModel.cursorPosition, viewModel.editorText.length)
+        codeEditor.setSelection(clampedCursor)
+
+        // Restore file name and status bar
+        currentFileName = viewModel.currentFileName
+        statusBar.text = viewModel.statusBarText
+
+        // Restore mesh and GL view if mesh data exists
+        val vertices = viewModel.meshVertices
+        val normals = viewModel.meshNormals
+        val colors = viewModel.meshColors
+        if (vertices != null && normals != null && colors != null) {
+            val meshResult = MeshResult(vertices, normals, colors)
+            currentMesh = meshResult
+            setupGLView(meshResult)
+
+            // Restore camera state on the renderer
+            sceneRenderer?.let { renderer ->
+                renderer.cameraRotX = viewModel.cameraRotX
+                renderer.cameraRotY = viewModel.cameraRotY
+                renderer.cameraDistance = viewModel.cameraDistance
+                renderer.cameraPanX = viewModel.cameraPanX
+                renderer.cameraPanY = viewModel.cameraPanY
+            }
+            glSurfaceView?.requestRender()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         glSurfaceView?.onResume()
@@ -709,6 +829,15 @@ translate([0, 0, 20]) {
 
     override fun onPause() {
         super.onPause()
+        // Cancel active computation before saving state so that
+        // saveStateToViewModel() stores isComputing=false and the cancelled status.
+        if (computeJob?.isActive == true) {
+            engineManager.currentEngine.cancel()
+            computeJob?.cancel()
+            computeJob = null
+            statusBar.text = "Computation cancelled"
+        }
+        saveStateToViewModel()
         glSurfaceView?.onPause()
         PreferenceManager.getDefaultSharedPreferences(this)
             .unregisterOnSharedPreferenceChangeListener(prefListener)
@@ -716,6 +845,15 @@ translate([0, 0, 20]) {
 
     override fun onDestroy() {
         super.onDestroy()
+        // Defensive: if computation is still active (shouldn't be after onPause),
+        // cancel it and update ViewModel so the recreated Activity sees correct state.
+        if (computeJob?.isActive == true) {
+            engineManager.currentEngine.cancel()
+            computeJob?.cancel()
+            computeJob = null
+            viewModel.isComputing = false
+            viewModel.statusBarText = "Computation cancelled"
+        }
         syntaxHighlighter?.detach()
         coroutineScope.cancel()
     }
