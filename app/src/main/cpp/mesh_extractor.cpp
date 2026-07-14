@@ -2,6 +2,7 @@
 #include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
 #include <CGAL/Polygon_mesh_processing/compute_normal.h>
 #include <cmath>
+#include <cstdio>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -13,13 +14,25 @@ void extract_mesh(const Nef_polyhedron& nef, const SceneColor& color,
 
     // Convert Nef to Polyhedron
     Polyhedron poly;
-    if (!nef.is_simple()) {
-        // Non-manifold result; skip
-        return;
+    if (nef.is_simple()) {
+        // Simple (manifold) Nef — direct conversion
+        nef.convert_to_polyhedron(poly);
+    } else {
+        // Non-simple Nef (e.g., operands sharing edges after union).
+        // Attempt conversion anyway — it may succeed for 2-manifold boundaries.
+        try {
+            nef.convert_to_polyhedron(poly);
+        } catch (const std::exception& e) {
+            fprintf(stderr, "CGAL mesh_extractor: non-simple Nef conversion failed: %s\n", e.what());
+            return;
+        } catch (...) {
+            fprintf(stderr, "CGAL mesh_extractor: non-simple Nef conversion failed (unknown error)\n");
+            return;
+        }
     }
-    nef.convert_to_polyhedron(poly);
 
     if (poly.empty()) {
+        fprintf(stderr, "CGAL mesh_extractor: conversion produced empty polyhedron\n");
         return;
     }
 

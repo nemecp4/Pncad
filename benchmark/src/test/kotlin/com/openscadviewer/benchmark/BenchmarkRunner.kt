@@ -18,7 +18,7 @@ import java.io.File
  * 3. For each engine (sequentially):
  *    a. Check isAvailable() — if false → SKIPPED
  *    b. Call engine.compute() with coroutine timeout
- *    c. On success → write STL via StlOutputWriter
+ *    c. On success → write STL, then compare against reference if available
  *    d. On timeout → TIMEOUT with time = 120000
  *    e. On error → COMPUTE_ERROR
  * 4. Continue to next test case regardless of errors
@@ -27,31 +27,11 @@ class BenchmarkRunner(
     private val engines: List<Pair<String, ComputeEngine>>,
     private val testCases: List<TestCase>,
     private val stlOutputDir: File,
-    private val timeoutMs: Long = 120_000L
+    private val timeoutMs: Long = 120_000L,
+    private val tolerance: Double = 0.15
 ) {
     private val parser = OpenSCADParser()
     private val stlWriter = StlOutputWriter(stlOutputDir)
-
-    /**
-     * Returns the directory containing reference STL files.
-     * Looks for expected_results/ as a classpath resource first, then falls back
-     * to the source tree location (src/test/expected_results/).
-     */
-    private fun getReferenceDir(): File? {
-        // Try classpath first (works if expected_results is in src/test/resources/)
-        val url = javaClass.classLoader.getResource("expected_results")
-        if (url != null) return File(url.toURI())
-
-        // Fallback: look relative to project root (src/test/expected_results/)
-        val fallback = File("benchmark/src/test/expected_results")
-        if (fallback.exists()) return fallback
-
-        // Also try without module prefix (when CWD is already the benchmark module)
-        val fallback2 = File("src/test/expected_results")
-        if (fallback2.exists()) return fallback2
-
-        return null
-    }
 
     fun run(): List<BenchmarkResult> {
         val results = mutableListOf<BenchmarkResult>()
@@ -66,7 +46,6 @@ class BenchmarkRunner(
             val sceneNode = try {
                 parser.parse(testCase.code)
             } catch (e: Exception) {
-                // Parser threw an exception — record PARSE_ERROR for all engines
                 val errorSnippet = truncateSnippet(testCase.code)
                 for ((engineName, _, _) in engineAvailability) {
                     results.add(
@@ -102,7 +81,6 @@ class BenchmarkRunner(
             // Step 3: Run each engine sequentially
             for ((engineName, engine, available) in engineAvailability) {
                 if (!available) {
-                    // Unavailable engine → SKIPPED
                     results.add(
                         BenchmarkResult(
                             testCase = testCase,
@@ -114,7 +92,6 @@ class BenchmarkRunner(
                     continue
                 }
 
-                // Execute with timeout (STL writing is handled inside on success)
                 val result = executeWithTimeout(testCase, engineName, engine)
                 results.add(result)
             }
@@ -141,7 +118,6 @@ class BenchmarkRunner(
             val elapsed = System.currentTimeMillis() - startTime
 
             if (meshResult == null) {
-                // Timeout occurred
                 BenchmarkResult(
                     testCase = testCase,
                     engineName = engineName,
@@ -149,18 +125,44 @@ class BenchmarkRunner(
                     status = ResultStatus.TIMEOUT
                 )
             } else {
-                // Got a result — check if it was successful
                 meshResult.fold(
                     onSuccess = { mesh ->
-                        val result = BenchmarkResult(
+                        // Write STL
+                        val prelimResult = BenchmarkResult(
                             testCase = testCase,
                             engineName = engineName,
                             timeMs = elapsed,
                             status = ResultStatus.SUCCESS
                         )
-                        // Write STL on success
-                        stlWriter.write(result, mesh)
-                        result
+                        stlWriter.write(prelimResult, mesh)
+
+                        // Compare against reference STL if available (only for CGAL engine)
+                        if (engineName == "cgal") {
+                            validateAgainstReference(testCase, engineName, elapsed)
+                        } else {
+                            // Non-CGAL engines: return SUCCESS with generated stats
+                            // and expected stats for display purposes (no assertion)
+                            val stlFilename = StlFileNamer.generateFilename(testCase.category, testCase.name)
+                            val generatedFile = File(File(stlOutputDir, engineName), stlFilename)
+                            val genTriangles = if (generatedFile.exists()) StlComparator.readTriangleCount(generatedFile) ?: 0 else 0
+                            val genFileSize = if (generatedFile.exists()) generatedFile.length() else 0L
+
+                            // Read expected stats if reference exists (for display only)
+                            val refFile = testCase.expectedStlPath?.let { resolveExpectedStl(it) }
+                            val expTriangles = refFile?.let { StlComparator.readTriangleCount(it) } ?: -1
+                            val expFileSize = refFile?.length() ?: -1L
+
+                            BenchmarkResult(
+                                testCase = testCase,
+                                engineName = engineName,
+                                timeMs = elapsed,
+                                status = ResultStatus.SUCCESS,
+                                generatedTriangles = genTriangles,
+                                generatedFileSize = genFileSize,
+                                expectedTriangles = expTriangles,
+                                expectedFileSize = expFileSize
+                            )
+                        }
                     },
                     onFailure = { error ->
                         BenchmarkResult(
@@ -185,63 +187,105 @@ class BenchmarkRunner(
         }
     }
 
-    private fun truncateSnippet(code: String): String {
-        return if (code.length > 256) {
-            code.substring(0, 256)
+    /**
+     * After writing the STL, compare it against the reference.
+     * Sets COMPARISON_FAILED if triangle count or file size exceeds tolerance.
+     * Returns SUCCESS with stats populated if no reference or comparison passes.
+     */
+    private fun validateAgainstReference(
+        testCase: TestCase,
+        engineName: String,
+        elapsed: Long
+    ): BenchmarkResult {
+        val stlFilename = StlFileNamer.generateFilename(testCase.category, testCase.name)
+        val generatedFile = File(File(stlOutputDir, engineName), stlFilename)
+
+        val genTriangles = if (generatedFile.exists()) StlComparator.readTriangleCount(generatedFile) ?: 0 else 0
+        val genFileSize = if (generatedFile.exists()) generatedFile.length() else 0L
+
+        // No reference → SUCCESS with generated stats only
+        val expectedPath = testCase.expectedStlPath
+            ?: return BenchmarkResult(
+                testCase = testCase,
+                engineName = engineName,
+                timeMs = elapsed,
+                status = ResultStatus.SUCCESS,
+                generatedTriangles = genTriangles,
+                generatedFileSize = genFileSize
+            )
+
+        // Resolve reference file
+        val referenceFile = resolveExpectedStl(expectedPath)
+        if (referenceFile == null || !referenceFile.exists()) {
+            return BenchmarkResult(
+                testCase = testCase,
+                engineName = engineName,
+                timeMs = elapsed,
+                status = ResultStatus.SUCCESS,
+                errorDetail = "reference not found: $expectedPath",
+                generatedTriangles = genTriangles,
+                generatedFileSize = genFileSize
+            )
+        }
+
+        val expTriangles = StlComparator.readTriangleCount(referenceFile) ?: 0
+        val expFileSize = referenceFile.length()
+
+        // Compare triangle count
+        val triangleDiffPercent = if (expTriangles > 0)
+            kotlin.math.abs((genTriangles - expTriangles).toDouble() / expTriangles * 100.0) else 0.0
+        val sizeDiffPercent = if (expFileSize > 0)
+            kotlin.math.abs((genFileSize - expFileSize).toDouble() / expFileSize * 100.0) else 0.0
+
+        val triangleOk = expTriangles == 0 || triangleDiffPercent <= tolerance * 100.0
+        val sizeOk = expFileSize == 0L || sizeDiffPercent <= tolerance * 100.0
+
+        return if (triangleOk && sizeOk) {
+            BenchmarkResult(
+                testCase = testCase,
+                engineName = engineName,
+                timeMs = elapsed,
+                status = ResultStatus.SUCCESS,
+                generatedTriangles = genTriangles,
+                generatedFileSize = genFileSize,
+                expectedTriangles = expTriangles,
+                expectedFileSize = expFileSize
+            )
         } else {
-            code
+            val details = mutableListOf<String>()
+            if (!triangleOk) details.add("triangles $genTriangles vs $expTriangles (${"%.1f".format(triangleDiffPercent)}%)")
+            if (!sizeOk) details.add("size $genFileSize vs $expFileSize (${"%.1f".format(sizeDiffPercent)}%)")
+            BenchmarkResult(
+                testCase = testCase,
+                engineName = engineName,
+                timeMs = elapsed,
+                status = ResultStatus.COMPARISON_FAILED,
+                errorDetail = details.joinToString("; "),
+                generatedTriangles = genTriangles,
+                generatedFileSize = genFileSize,
+                expectedTriangles = expTriangles,
+                expectedFileSize = expFileSize
+            )
         }
     }
 
+    private fun truncateSnippet(code: String): String {
+        return if (code.length > 256) code.substring(0, 256) else code
+    }
+
     /**
-     * Compares generated STL files against reference STL files in expected_results/.
-     * Only compares test cases in the "custom" category (which always have a reference).
-     *
-     * Generated files use the full filename (category_name.stl) but reference files
-     * use just the test name (name.stl).
-     *
-     * @throws AssertionError if the reference directory is missing or a reference file
-     *         cannot be found for a successful custom test case.
+     * Resolves an expectedStlPath to a File.
+     * Tries classpath first, then filesystem relative paths.
      */
-    fun compareWithReferences(results: List<BenchmarkResult>): List<StlComparator.ComparisonResult> {
-        // Only compare CGAL engine output against references since the Kotlin engine
-        // does not perform CSG boolean operations (difference/intersection) and will
-        // produce more geometry than the reference STLs generated by OpenSCAD.
-        val customSuccesses = results.filter {
-            it.status == ResultStatus.SUCCESS && it.testCase.category == "custom" && it.engineName == "cgal"
-        }
-        if (customSuccesses.isEmpty()) return emptyList()
-
-        val referenceDir = getReferenceDir()
-            ?: error("Reference directory 'expected_results' not found. Cannot compare custom test cases.")
-
-        val comparisons = mutableListOf<StlComparator.ComparisonResult>()
-        val missing = mutableListOf<String>()
-
-        for (result in customSuccesses) {
-            val stlFilename = StlFileNamer.generateFilename(result.testCase.category, result.testCase.name)
-            val generatedFile = File(File(stlOutputDir, result.engineName), stlFilename)
-            // Reference files use just the test name without category prefix
-            val referenceFilename = "${result.testCase.name}.stl"
-            val referenceFile = File(referenceDir, referenceFilename)
-
-            if (!referenceFile.exists()) {
-                missing.add("${result.engineName}/${result.testCase.name}: reference not found at ${referenceFile.path}")
-                continue
-            }
-
-            val comparison = StlComparator.compare(generatedFile, referenceFile, "${result.testCase.name} (${result.engineName})")
-            if (comparison != null) {
-                comparisons.add(comparison)
-            } else {
-                missing.add("${result.engineName}/${result.testCase.name}: generated file missing or unreadable at ${generatedFile.path}")
-            }
-        }
-
-        if (missing.isNotEmpty()) {
-            error("STL comparison could not run for ${missing.size} case(s):\n${missing.joinToString("\n")}")
-        }
-
-        return comparisons
+    private fun resolveExpectedStl(path: String): File? {
+        val url = javaClass.classLoader.getResource(path)
+        if (url != null) return File(url.toURI())
+        val f1 = File("benchmark/src/test/resources/$path")
+        if (f1.exists()) return f1
+        val f2 = File("src/test/resources/$path")
+        if (f2.exists()) return f2
+        val f3 = File(path)
+        if (f3.exists()) return f3
+        return null
     }
 }

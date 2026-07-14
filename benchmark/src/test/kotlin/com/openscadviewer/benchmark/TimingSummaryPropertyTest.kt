@@ -145,6 +145,7 @@ class TimingSummaryPropertyTest {
             ResultStatus.SUCCESS,
             ResultStatus.PARSE_ERROR,
             ResultStatus.COMPUTE_ERROR,
+            ResultStatus.COMPARISON_FAILED,
             ResultStatus.TIMEOUT,
             ResultStatus.SKIPPED
         )
@@ -155,7 +156,7 @@ class TimingSummaryPropertyTest {
     /**
      * Feature: engine-modularization-and-benchmarks, Property 12: Result status enum constraint
      *
-     * The ResultStatus enum contains exactly 5 values.
+     * The ResultStatus enum contains exactly 6 values.
      *
      * Validates: Requirements 7.3
      */
@@ -165,10 +166,10 @@ class TimingSummaryPropertyTest {
         @ForAll("singleBenchmarkResult") result: BenchmarkResult
     ) {
         val allValues = ResultStatus.entries
-        assertEquals(5, allValues.size,
-            "ResultStatus enum should have exactly 5 values, but has ${allValues.size}: $allValues")
+        assertEquals(6, allValues.size,
+            "ResultStatus enum should have exactly 6 values, but has ${allValues.size}: $allValues")
 
-        val expectedNames = setOf("SUCCESS", "PARSE_ERROR", "COMPUTE_ERROR", "TIMEOUT", "SKIPPED")
+        val expectedNames = setOf("SUCCESS", "PARSE_ERROR", "COMPUTE_ERROR", "COMPARISON_FAILED", "TIMEOUT", "SKIPPED")
         val actualNames = allValues.map { it.name }.toSet()
         assertEquals(expectedNames, actualNames,
             "ResultStatus enum values mismatch. Expected: $expectedNames, Actual: $actualNames")
@@ -213,6 +214,10 @@ class TimingSummaryPropertyTest {
             ResultStatus.COMPUTE_ERROR -> {
                 assertTrue(output.contains("COMPUTE_ERROR"),
                     "COMPUTE_ERROR result should contain 'COMPUTE_ERROR' in output")
+            }
+            ResultStatus.COMPARISON_FAILED -> {
+                assertTrue(output.contains("COMPARISON_FAILED"),
+                    "COMPARISON_FAILED result should contain 'COMPARISON_FAILED' in output")
             }
         }
     }

@@ -104,6 +104,10 @@ object TimingSummaryFormatter {
                             val errorInfo = if (result.errorDetail != null) ": ${result.errorDetail}" else ""
                             "COMPUTE_ERROR$errorInfo"
                         }
+                        ResultStatus.COMPARISON_FAILED -> {
+                            val errorInfo = if (result.errorDetail != null) ": ${result.errorDetail}" else ""
+                            "COMPARISON_FAILED$errorInfo"
+                        }
                     }
                     appendLine("  $detail")
                 }
