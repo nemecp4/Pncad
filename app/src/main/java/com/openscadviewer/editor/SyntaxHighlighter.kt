@@ -25,27 +25,9 @@ class SyntaxHighlighter(private val editText: EditText) {
         private const val COLOR_BOOLEAN = 0xFF569CD6.toInt()    // Blue
         private const val COLOR_OPERATOR = 0xFFD4D4D4.toInt()   // Light gray
 
-        private val KEYWORDS = listOf(
-            "module", "function", "if", "else", "for", "let",
-            "each", "assert", "echo", "include", "use"
-        )
-
-        private val BUILTINS = listOf(
-            "cube", "sphere", "cylinder", "polyhedron",
-            "circle", "square", "polygon", "text",
-            "translate", "rotate", "scale", "mirror", "multmatrix",
-            "color", "offset", "hull", "minkowski",
-            "union", "difference", "intersection",
-            "linear_extrude", "rotate_extrude",
-            "import", "surface", "projection",
-            "render", "children"
-        )
-
-        private val MATH_FUNCTIONS = listOf(
-            "abs", "sign", "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
-            "floor", "ceil", "round", "sqrt", "pow", "exp", "log", "ln",
-            "min", "max", "len", "norm", "cross", "concat", "lookup", "str"
-        )
+        private val KEYWORDS = OpenScadTokens.KEYWORDS
+        private val BUILTINS = OpenScadTokens.BUILTINS
+        private val MATH_FUNCTIONS = OpenScadTokens.MATH_FUNCTIONS
 
         // Regex patterns
         private val PATTERN_COMMENT_LINE = Pattern.compile("//[^\\n]*")

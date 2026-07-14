@@ -15,6 +15,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.ViewModelProvider
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -26,6 +27,13 @@ import com.google.android.material.tabs.TabLayout
 import com.openscadviewer.console.ConsoleAdapter
 import com.openscadviewer.console.ConsoleViewModel
 import com.openscadviewer.console.LogSeverity
+import com.openscadviewer.editor.BuiltinProvider
+import com.openscadviewer.editor.CompletionEngine
+import com.openscadviewer.editor.CompletionPopup
+import com.openscadviewer.editor.CompletionTextWatcher
+import com.openscadviewer.editor.DocumentScanner
+import com.openscadviewer.editor.KeywordProvider
+import com.openscadviewer.editor.MathProvider
 import com.openscadviewer.editor.SyntaxHighlighter
 import com.openscadviewer.engine.ComputeException
 import com.openscadviewer.engine.EngineManager
@@ -268,6 +276,23 @@ class MainActivity : AppCompatActivity() {
                 updateLineNumbers()
             }
         })
+
+        // Code completion setup
+        val documentScanner = DocumentScanner(lifecycleScope)
+        val providers = listOf(
+            documentScanner,
+            KeywordProvider(),
+            BuiltinProvider(),
+            MathProvider()
+        )
+        val completionEngine = CompletionEngine(providers)
+
+        lateinit var completionWatcher: CompletionTextWatcher
+        val completionPopup = CompletionPopup(this, codeEditor) { item ->
+            completionWatcher.insertCompletion(item)
+        }
+        completionWatcher = CompletionTextWatcher(codeEditor, completionEngine, completionPopup, documentScanner)
+        codeEditor.addTextChangedListener(completionWatcher)
 
         // Load sample code
         val sampleCode = """// OpenSCAD Viewer - Sample
