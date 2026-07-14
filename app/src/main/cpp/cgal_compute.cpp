@@ -111,12 +111,17 @@ static Nef_polyhedron compute_difference(const json& children,
                                          bool& valid_out) {
     valid_out = false;
     color_out = SceneColor::DEFAULT;
-    Nef_polyhedron result;
-    bool have_first = false;
+
+    if (children.empty()) {
+        return Nef_polyhedron();
+    }
+
+    // Collect all children's Nef polyhedra
+    std::vector<Nef_polyhedron> child_nefs;
+    bool first_color_set = false;
 
     for (const auto& child : children) {
         if (is_cancelled(cancel_flag)) {
-            valid_out = false;
             return Nef_polyhedron();
         }
 
@@ -126,26 +131,49 @@ static Nef_polyhedron compute_difference(const json& children,
                                                      child_color, child_valid);
 
         if (!child_valid || is_degenerate(child_nef)) {
-            continue;  // Exclude degenerate operands
+            continue;
         }
 
-        if (!have_first) {
-            // First valid child becomes the base
-            result = std::move(child_nef);
+        if (!first_color_set) {
             color_out = child_color;
-            have_first = true;
-        } else {
-            // Subtract subsequent children from the first
-            if (is_cancelled(cancel_flag)) {
-                valid_out = false;
-                return Nef_polyhedron();
-            }
-            result = result - child_nef;
+            first_color_set = true;
         }
+        child_nefs.push_back(std::move(child_nef));
     }
 
-    valid_out = have_first;
-    return result;
+    if (child_nefs.empty()) {
+        return Nef_polyhedron();
+    }
+
+    // Single operand: just return it
+    if (child_nefs.size() == 1) {
+        valid_out = true;
+        return std::move(child_nefs[0]);
+    }
+
+    // Optimization: union all subtraction operands first, then subtract once.
+    // This avoids accumulation of non-manifold artifacts from sequential subtractions.
+    // Result = first - (second ∪ third ∪ ... ∪ last)
+    Nef_polyhedron base = std::move(child_nefs[0]);
+
+    if (child_nefs.size() == 2) {
+        // Simple case: single subtraction
+        if (is_cancelled(cancel_flag)) return Nef_polyhedron();
+        base = base - child_nefs[1];
+    } else {
+        // Union all subtraction operands
+        Nef_polyhedron subtraction_union = std::move(child_nefs[1]);
+        for (size_t i = 2; i < child_nefs.size(); ++i) {
+            if (is_cancelled(cancel_flag)) return Nef_polyhedron();
+            subtraction_union = subtraction_union + child_nefs[i];
+        }
+        // Single subtraction
+        if (is_cancelled(cancel_flag)) return Nef_polyhedron();
+        base = base - subtraction_union;
+    }
+
+    valid_out = true;
+    return base;
 }
 
 /**

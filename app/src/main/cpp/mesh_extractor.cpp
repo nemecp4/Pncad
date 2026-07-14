@@ -13,22 +13,66 @@ void extract_mesh(const Nef_polyhedron& nef, const SceneColor& color,
         return;
     }
 
-    // Convert Nef to Polyhedron
+    // Convert Nef to Polyhedron using a fallback chain:
+    // 1. Direct conversion (requires is_simple)
+    // 2. convert_nef_polyhedron_to_polygon_mesh (handles most non-simple cases)
+    // 3. Regularize + direct conversion (removes lower-dimensional artifacts)
+    // 4. Regularize + convert_nef_polyhedron_to_polygon_mesh (last resort)
     Polyhedron poly;
+
     if (nef.is_simple()) {
-        // Simple (manifold) Nef — direct conversion
+        // Fast path: simple Nef → direct conversion
         nef.convert_to_polyhedron(poly);
     } else {
-        // Non-simple Nef (e.g., operands sharing edges/faces after union).
-        // Use convert_nef_polyhedron_to_polygon_mesh which handles non-simple cases
-        // by extracting the outer volume boundary.
+        bool converted = false;
+
+        // Strategy 1: convert_nef_polyhedron_to_polygon_mesh on original
         try {
             CGAL::convert_nef_polyhedron_to_polygon_mesh(nef, poly, true);
-        } catch (const std::exception& e) {
-            fprintf(stderr, "CGAL mesh_extractor: non-simple Nef conversion failed: %s\n", e.what());
-            return;
+            if (!poly.empty()) converted = true;
         } catch (...) {
-            fprintf(stderr, "CGAL mesh_extractor: non-simple Nef conversion failed (unknown error)\n");
+            poly.clear();
+        }
+
+        // Strategy 2: regularize, then try both conversion methods
+        if (!converted) {
+            try {
+                Nef_polyhedron regularized = nef.regularization();
+                if (!regularized.is_empty()) {
+                    if (regularized.is_simple()) {
+                        regularized.convert_to_polyhedron(poly);
+                        if (!poly.empty()) converted = true;
+                    } else {
+                        CGAL::convert_nef_polyhedron_to_polygon_mesh(regularized, poly, true);
+                        if (!poly.empty()) converted = true;
+                    }
+                }
+            } catch (...) {
+                poly.clear();
+            }
+        }
+
+        // Strategy 3: interior closure — take the interior, close it, convert
+        if (!converted) {
+            try {
+                Nef_polyhedron interior = nef.interior();
+                Nef_polyhedron closed = interior.closure();
+                if (!closed.is_empty()) {
+                    if (closed.is_simple()) {
+                        closed.convert_to_polyhedron(poly);
+                        if (!poly.empty()) converted = true;
+                    } else {
+                        CGAL::convert_nef_polyhedron_to_polygon_mesh(closed, poly, true);
+                        if (!poly.empty()) converted = true;
+                    }
+                }
+            } catch (...) {
+                poly.clear();
+            }
+        }
+
+        if (!converted) {
+            fprintf(stderr, "CGAL mesh_extractor: all conversion strategies failed for non-simple Nef\n");
             return;
         }
     }
