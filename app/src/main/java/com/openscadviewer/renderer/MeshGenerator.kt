@@ -59,6 +59,8 @@ class MeshGenerator {
             }
             is SceneNode.Circle -> generateCircle2D(node, vertices, normals, colors, transform)
             is SceneNode.Square -> generateSquare2D(node, vertices, normals, colors, transform)
+            is SceneNode.TextApprox -> generateSquare2D(
+                SceneNode.Square(node.sizeX, node.sizeY, node.center), vertices, normals, colors, transform)
             is SceneNode.Polygon -> generatePolygon2D(node, vertices, normals, colors, transform)
             is SceneNode.LinearExtrude -> generateLinearExtrude(node, vertices, normals, colors, transform)
             is SceneNode.Translate -> {

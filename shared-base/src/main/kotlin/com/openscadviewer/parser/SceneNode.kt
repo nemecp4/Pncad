@@ -90,4 +90,16 @@ sealed class SceneNode {
     data class Group(
         val children: List<SceneNode>
     ) : SceneNode()
+
+    /**
+     * Approximation of a text() call as a rectangle.
+     * Used by the parser since proper font rendering is not available.
+     * CGAL preprocessor skips these nodes to avoid non-manifold geometry
+     * from overlapping text rectangles in complex models.
+     */
+    data class TextApprox(
+        val sizeX: Double,
+        val sizeY: Double,
+        val center: Boolean
+    ) : SceneNode()
 }

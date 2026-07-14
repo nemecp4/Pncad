@@ -1649,7 +1649,7 @@ class OpenSCADParser {
         val charCount = if (textContent.isNotEmpty()) textContent.length else 1
         val width = charCount.toDouble() * size * 0.7
         val height = size
-        return SceneNode.Square(width, height, true)
+        return SceneNode.TextApprox(width, height, true)
     }
 
     // --- Module and For Loop support ---

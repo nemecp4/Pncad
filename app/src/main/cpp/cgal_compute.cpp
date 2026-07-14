@@ -151,25 +151,19 @@ static Nef_polyhedron compute_difference(const json& children,
         return std::move(child_nefs[0]);
     }
 
-    // Optimization: union all subtraction operands first, then subtract once.
-    // This avoids accumulation of non-manifold artifacts from sequential subtractions.
-    // Result = first - (second ∪ third ∪ ... ∪ last)
+    // Sequential subtraction with regularization after each step.
+    // Regularization removes shared boundary faces that arise when subtraction
+    // operands touch the base surface exactly (coplanar faces).
     Nef_polyhedron base = std::move(child_nefs[0]);
 
-    if (child_nefs.size() == 2) {
-        // Simple case: single subtraction
+    for (size_t i = 1; i < child_nefs.size(); ++i) {
         if (is_cancelled(cancel_flag)) return Nef_polyhedron();
-        base = base - child_nefs[1];
-    } else {
-        // Union all subtraction operands
-        Nef_polyhedron subtraction_union = std::move(child_nefs[1]);
-        for (size_t i = 2; i < child_nefs.size(); ++i) {
-            if (is_cancelled(cancel_flag)) return Nef_polyhedron();
-            subtraction_union = subtraction_union + child_nefs[i];
+        base = base - child_nefs[i];
+        // Regularize after each subtraction to clean up shared boundary artifacts
+        Nef_polyhedron regularized = base.regularization();
+        if (!regularized.is_empty()) {
+            base = std::move(regularized);
         }
-        // Single subtraction
-        if (is_cancelled(cancel_flag)) return Nef_polyhedron();
-        base = base - subtraction_union;
     }
 
     valid_out = true;

@@ -35,18 +35,47 @@ object SceneSerializer {
             is SceneNode.Circle -> SceneNode.Circle(node.radius, node.segments.coerceAtMost(MAX_SEGMENTS))
             is SceneNode.LinearExtrude -> {
                 val processedChild = preprocessForCgal(node.child)
+                // Skip linear_extrude if child was removed (e.g., TextApprox)
+                if (processedChild is SceneNode.Group && (processedChild).children.isEmpty()) {
+                    return SceneNode.Group(emptyList())
+                }
                 expandLinearExtrude(node.height, processedChild)
             }
-            is SceneNode.Union -> SceneNode.Union(node.children.map { preprocessForCgal(it) })
-            is SceneNode.Difference -> SceneNode.Difference(node.children.map { preprocessForCgal(it) })
-            is SceneNode.Intersection -> SceneNode.Intersection(node.children.map { preprocessForCgal(it) })
-            is SceneNode.Group -> SceneNode.Group(node.children.map { preprocessForCgal(it) })
-            is SceneNode.Translate -> SceneNode.Translate(node.x, node.y, node.z, preprocessForCgal(node.child))
-            is SceneNode.Rotate -> SceneNode.Rotate(node.x, node.y, node.z, preprocessForCgal(node.child))
-            is SceneNode.Scale -> SceneNode.Scale(node.x, node.y, node.z, preprocessForCgal(node.child))
-            is SceneNode.Color -> SceneNode.Color(node.r, node.g, node.b, node.a, preprocessForCgal(node.child))
+            is SceneNode.Union -> SceneNode.Union(node.children.map { preprocessForCgal(it) }.filterNot { isEmptyNode(it) })
+            is SceneNode.Difference -> SceneNode.Difference(node.children.map { preprocessForCgal(it) }.filterNot { isEmptyNode(it) })
+            is SceneNode.Intersection -> SceneNode.Intersection(node.children.map { preprocessForCgal(it) }.filterNot { isEmptyNode(it) })
+            is SceneNode.Group -> SceneNode.Group(node.children.map { preprocessForCgal(it) }.filterNot { isEmptyNode(it) })
+            is SceneNode.Translate -> {
+                val child = preprocessForCgal(node.child)
+                if (isEmptyNode(child)) SceneNode.Group(emptyList())
+                else SceneNode.Translate(node.x, node.y, node.z, child)
+            }
+            is SceneNode.Rotate -> {
+                val child = preprocessForCgal(node.child)
+                if (isEmptyNode(child)) SceneNode.Group(emptyList())
+                else SceneNode.Rotate(node.x, node.y, node.z, child)
+            }
+            is SceneNode.Scale -> {
+                val child = preprocessForCgal(node.child)
+                if (isEmptyNode(child)) SceneNode.Group(emptyList())
+                else SceneNode.Scale(node.x, node.y, node.z, child)
+            }
+            is SceneNode.Color -> {
+                val child = preprocessForCgal(node.child)
+                if (isEmptyNode(child)) SceneNode.Group(emptyList())
+                else SceneNode.Color(node.r, node.g, node.b, node.a, child)
+            }
+            // TextApprox: skip entirely for CGAL (produces non-manifold results)
+            is SceneNode.TextApprox -> SceneNode.Group(emptyList())
             else -> node
         }
+    }
+
+    /**
+     * Returns true if a node is effectively empty (no geometry).
+     */
+    private fun isEmptyNode(node: SceneNode): Boolean {
+        return node is SceneNode.Group && node.children.isEmpty()
     }
 
     /**
@@ -107,6 +136,13 @@ object SceneSerializer {
                 obj.put("segments", node.segments)
             }
             is SceneNode.Square -> {
+                obj.put("type", "square")
+                obj.put("sizeX", node.sizeX)
+                obj.put("sizeY", node.sizeY)
+                obj.put("center", node.center)
+            }
+            is SceneNode.TextApprox -> {
+                // Serialize as square for non-CGAL usage (display purposes)
                 obj.put("type", "square")
                 obj.put("sizeX", node.sizeX)
                 obj.put("sizeY", node.sizeY)

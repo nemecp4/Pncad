@@ -63,6 +63,7 @@ class KotlinComputeEngine : ComputeEngine {
             is SceneNode.Circle -> 0
             is SceneNode.Square -> 0
             is SceneNode.Polygon -> 0
+            is SceneNode.TextApprox -> 0
         }
     }
 }

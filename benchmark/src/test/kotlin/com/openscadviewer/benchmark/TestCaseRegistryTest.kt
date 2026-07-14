@@ -155,6 +155,7 @@ class TestCaseRegistryTest {
         is com.openscadviewer.parser.SceneNode.Circle -> 1
         is com.openscadviewer.parser.SceneNode.Square -> 1
         is com.openscadviewer.parser.SceneNode.Polygon -> 1
+        is com.openscadviewer.parser.SceneNode.TextApprox -> 1
         is com.openscadviewer.parser.SceneNode.Translate -> 1 + countTotalOperations(node.child)
         is com.openscadviewer.parser.SceneNode.Rotate -> 1 + countTotalOperations(node.child)
         is com.openscadviewer.parser.SceneNode.Scale -> 1 + countTotalOperations(node.child)
@@ -173,6 +174,7 @@ class TestCaseRegistryTest {
         is com.openscadviewer.parser.SceneNode.Circle -> 1
         is com.openscadviewer.parser.SceneNode.Square -> 1
         is com.openscadviewer.parser.SceneNode.Polygon -> 1
+        is com.openscadviewer.parser.SceneNode.TextApprox -> 1
         is com.openscadviewer.parser.SceneNode.Translate -> countGeometryNodes(node.child)
         is com.openscadviewer.parser.SceneNode.Rotate -> countGeometryNodes(node.child)
         is com.openscadviewer.parser.SceneNode.Scale -> countGeometryNodes(node.child)

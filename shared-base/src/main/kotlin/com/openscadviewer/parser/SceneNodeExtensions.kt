@@ -7,7 +7,8 @@ package com.openscadviewer.parser
  */
 fun SceneNode.containsGeometry(): Boolean = when (this) {
     is SceneNode.Cube, is SceneNode.Sphere, is SceneNode.Cylinder,
-    is SceneNode.Circle, is SceneNode.Square, is SceneNode.Polygon -> true
+    is SceneNode.Circle, is SceneNode.Square, is SceneNode.Polygon,
+    is SceneNode.TextApprox -> true
     is SceneNode.Translate -> child.containsGeometry()
     is SceneNode.Rotate -> child.containsGeometry()
     is SceneNode.Scale -> child.containsGeometry()

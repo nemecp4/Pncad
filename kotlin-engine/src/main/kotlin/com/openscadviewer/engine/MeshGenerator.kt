@@ -75,6 +75,8 @@ class MeshGenerator {
             }
             is SceneNode.Circle -> generateCircle2D(node, vertices, normals, colors, transform)
             is SceneNode.Square -> generateSquare2D(node, vertices, normals, colors, transform)
+            is SceneNode.TextApprox -> generateSquare2D(
+                SceneNode.Square(node.sizeX, node.sizeY, node.center), vertices, normals, colors, transform)
             is SceneNode.Polygon -> generatePolygon2D(node, vertices, normals, colors, transform)
             is SceneNode.LinearExtrude -> generateLinearExtrude(node, vertices, normals, colors, transform)
             is SceneNode.Translate -> {
@@ -431,6 +433,19 @@ class MeshGenerator {
                 listOf(points)
             }
             is SceneNode.Square -> {
+                val sx = node.sizeX.toFloat()
+                val sy = node.sizeY.toFloat()
+                val ox = if (node.center) -sx / 2f else 0f
+                val oy = if (node.center) -sy / 2f else 0f
+                val points = listOf(
+                    floatArrayOf(ox, oy),
+                    floatArrayOf(ox + sx, oy),
+                    floatArrayOf(ox + sx, oy + sy),
+                    floatArrayOf(ox, oy + sy)
+                )
+                listOf(points)
+            }
+            is SceneNode.TextApprox -> {
                 val sx = node.sizeX.toFloat()
                 val sy = node.sizeY.toFloat()
                 val ox = if (node.center) -sx / 2f else 0f
