@@ -1,6 +1,10 @@
 #include "scene_builder.h"
 #include <CGAL/Polyhedron_incremental_builder_3.h>
+#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
+#include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
+#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
 #include <cmath>
+#include <cstdio>
 #include <stdexcept>
 
 #ifndef M_PI
@@ -64,12 +68,62 @@ private:
 
 static Nef_polyhedron make_nef_from_mesh(const std::vector<Point_3>& vertices,
                                          const std::vector<std::array<int, 3>>& faces) {
+    // Validate face indices before passing to the incremental builder.
+    // Out-of-range indices trigger an assertion in Polyhedron_incremental_builder_3.
+    int num_verts = static_cast<int>(vertices.size());
+    for (const auto& f : faces) {
+        for (int idx : f) {
+            if (idx < 0 || idx >= num_verts) {
+                fprintf(stderr, "CGAL make_nef_from_mesh: face index %d out of range [0, %d)\n",
+                        idx, num_verts);
+                return Nef_polyhedron();
+            }
+        }
+        // Skip degenerate triangles (duplicate vertex indices)
+        if (f[0] == f[1] || f[1] == f[2] || f[0] == f[2]) {
+            fprintf(stderr, "CGAL make_nef_from_mesh: degenerate face [%d, %d, %d]\n",
+                    f[0], f[1], f[2]);
+            return Nef_polyhedron();
+        }
+    }
+
     Polyhedron poly;
-    Build_polyhedron<HalfedgeDS> builder(vertices, faces);
-    poly.delegate(builder);
+    try {
+        Build_polyhedron<HalfedgeDS> builder(vertices, faces);
+        poly.delegate(builder);
+    } catch (...) {
+        // Incremental builder failed (non-manifold mesh, protocol violation, etc.)
+        // Fall back to polygon soup repair approach.
+        poly.clear();
+    }
 
     if (poly.empty() || !poly.is_closed()) {
-        return Nef_polyhedron();  // Return empty on degenerate mesh
+        // Fallback: use polygon soup repair + orient pipeline
+        std::vector<Point_3> soup_points(vertices.begin(), vertices.end());
+        std::vector<std::vector<std::size_t>> soup_polygons;
+        soup_polygons.reserve(faces.size());
+        for (const auto& f : faces) {
+            soup_polygons.push_back({
+                static_cast<std::size_t>(f[0]),
+                static_cast<std::size_t>(f[1]),
+                static_cast<std::size_t>(f[2])
+            });
+        }
+
+        try {
+            CGAL::Polygon_mesh_processing::repair_polygon_soup(soup_points, soup_polygons);
+            CGAL::Polygon_mesh_processing::orient_polygon_soup(soup_points, soup_polygons);
+            if (CGAL::Polygon_mesh_processing::is_polygon_soup_a_polygon_mesh(soup_polygons)) {
+                poly.clear();
+                CGAL::Polygon_mesh_processing::polygon_soup_to_polygon_mesh(soup_points, soup_polygons, poly);
+            }
+        } catch (...) {
+            return Nef_polyhedron();
+        }
+
+        if (poly.empty() || !poly.is_closed()) {
+            return Nef_polyhedron();
+        }
     }
 
     return Nef_polyhedron(poly);

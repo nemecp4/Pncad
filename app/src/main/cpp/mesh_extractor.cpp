@@ -20,8 +20,17 @@ void extract_mesh(const Nef_polyhedron& nef, const SceneColor& color,
 
     if (nef.is_simple()) {
         // Fast path: simple Nef → direct conversion
-        nef.convert_to_polyhedron(poly);
-    } else {
+        try {
+            nef.convert_to_polyhedron(poly);
+        } catch (...) {
+            // convert_to_polyhedron can trigger Polyhedron_incremental_builder_3
+            // assertion if the Nef has degenerate geometry. Fall through to
+            // the polygon soup approach below.
+            poly.clear();
+        }
+    }
+
+    if (poly.empty()) {
         bool converted = false;
 
         // Strategy 1: extract polygon soup, repair, orient, build mesh.
@@ -49,9 +58,14 @@ void extract_mesh(const Nef_polyhedron& nef, const SceneColor& color,
                 Nef_polyhedron regularized = nef.regularization();
                 if (!regularized.is_empty()) {
                     if (regularized.is_simple()) {
-                        regularized.convert_to_polyhedron(poly);
-                        if (!poly.empty()) converted = true;
-                    } else {
+                        try {
+                            regularized.convert_to_polyhedron(poly);
+                            if (!poly.empty()) converted = true;
+                        } catch (...) {
+                            poly.clear();
+                        }
+                    }
+                    if (!converted) {
                         std::vector<Point_3> points;
                         std::vector<std::vector<std::size_t>> polygons;
                         CGAL::convert_nef_polyhedron_to_polygon_soup(regularized, points, polygons, true);
