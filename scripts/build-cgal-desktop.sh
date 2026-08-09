@@ -163,7 +163,6 @@ fi
 
 # Compile
 echo ""
-echo "Compiling cgal_engine with $CXX..."
 cd "$BUILD_DIR"
 
 # Build platform-specific flags
@@ -191,11 +190,28 @@ else
     SHARED_FLAG="-shared"
 fi
 
+# Compile ttf2mesh as a separate object first (C library, compiled with C compiler)
+echo "Compiling ttf2mesh..."
+if [ "$PLATFORM" = "macos" ]; then
+    CC_CMD="clang"
+else
+    CC_CMD="gcc"
+fi
+$CC_CMD -c -fPIC -O2 \
+    "$CPP_DIR/ttf2mesh/ttf2mesh.c" \
+    -o "$BUILD_DIR/ttf2mesh.o" \
+    2>&1
+
+echo ""
+echo "Compiling cgal_engine with $CXX..."
+
 $CXX $SHARED_FLAG -fPIC -O2 \
     "$CPP_DIR/cgal_engine.cpp" \
     "$CPP_DIR/cgal_compute.cpp" \
     "$CPP_DIR/scene_builder.cpp" \
     "$CPP_DIR/mesh_extractor.cpp" \
+    "$CPP_DIR/text_renderer.cpp" \
+    "$BUILD_DIR/ttf2mesh.o" \
     -o "$LIB_NAME" \
     "${INCLUDE_FLAGS[@]}" \
     "${LINK_FLAGS[@]}" \

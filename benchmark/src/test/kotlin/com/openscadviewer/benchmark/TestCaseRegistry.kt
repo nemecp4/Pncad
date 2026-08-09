@@ -101,14 +101,14 @@ object TestCaseRegistry {
     )
 
     // --- custom (user-provided test cases with expected_results) ---
+    // Each custom test is a separate class that can be run independently.
 
     val custom: List<TestCase> = listOf(
-        TestCase(name = "sun", category = "custom", code = loadCode("custom", "sun"),
-            expectedStlPath = "expected_results/sun.stl"),
-        TestCase(name = "controll_rose", category = "custom", code = loadCode("custom", "controll_rose"),
-            expectedStlPath = "expected_results/controll_rose.stl"),
-        TestCase(name = "tower", category = "custom", code = loadCode("custom", "tower"),
-            expectedStlPath = "expected_results/tower.stl")
+        SunBenchmarkTest().testCase,
+        ControllRoseBenchmarkTest().testCase,
+        TowerBenchmarkTest().testCase,
+        RotateText1BenchmarkTest().testCase,
+        RotateText2BenchmarkTest().testCase
     )
 
     // --- Aggregate list of all 50 test cases ---

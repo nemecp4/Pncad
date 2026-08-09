@@ -35,7 +35,7 @@ object SceneSerializer {
             is SceneNode.Circle -> SceneNode.Circle(node.radius, node.segments.coerceAtMost(MAX_SEGMENTS))
             is SceneNode.LinearExtrude -> {
                 val processedChild = preprocessForCgal(node.child)
-                // Skip linear_extrude if child was removed (e.g., TextApprox)
+                // Skip linear_extrude if child was removed (e.g., empty Text node)
                 if (processedChild is SceneNode.Group && (processedChild).children.isEmpty()) {
                     return SceneNode.Group(emptyList())
                 }
@@ -65,8 +65,11 @@ object SceneSerializer {
                 if (isEmptyNode(child)) SceneNode.Group(emptyList())
                 else SceneNode.Color(node.r, node.g, node.b, node.a, child)
             }
-            // TextApprox: skip entirely for CGAL (produces non-manifold results)
-            is SceneNode.TextApprox -> SceneNode.Group(emptyList())
+            // Text: pass through for CGAL if non-empty; return empty group if nothing to render
+            is SceneNode.Text -> {
+                if (node.text.isEmpty() || node.size <= 0) SceneNode.Group(emptyList())
+                else node
+            }
             else -> node
         }
     }
@@ -85,7 +88,7 @@ object SceneSerializer {
      */
     private fun expandLinearExtrude(height: Double, child: SceneNode): SceneNode {
         return when (child) {
-            is SceneNode.Circle, is SceneNode.Square, is SceneNode.Polygon ->
+            is SceneNode.Circle, is SceneNode.Square, is SceneNode.Polygon, is SceneNode.Text ->
                 SceneNode.LinearExtrude(height, child)
             is SceneNode.Union ->
                 SceneNode.Union(child.children.map { expandLinearExtrude(height, it) })
@@ -141,12 +144,15 @@ object SceneSerializer {
                 obj.put("sizeY", node.sizeY)
                 obj.put("center", node.center)
             }
-            is SceneNode.TextApprox -> {
-                // Serialize as square for non-CGAL usage (display purposes)
-                obj.put("type", "square")
-                obj.put("sizeX", node.sizeX)
-                obj.put("sizeY", node.sizeY)
-                obj.put("center", node.center)
+            is SceneNode.Text -> {
+                obj.put("type", "text")
+                obj.put("text", node.text)
+                obj.put("size", node.size)
+                obj.put("font", node.font)
+                obj.put("halign", node.halign)
+                obj.put("valign", node.valign)
+                obj.put("spacing", node.spacing)
+                obj.put("direction", node.direction)
             }
             is SceneNode.Polygon -> {
                 obj.put("type", "polygon")

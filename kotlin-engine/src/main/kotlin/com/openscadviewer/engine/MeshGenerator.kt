@@ -1,6 +1,10 @@
 package com.openscadviewer.engine
 
 import com.openscadviewer.engine.csg.Csg
+import com.openscadviewer.engine.text.AwtFontProvider
+import com.openscadviewer.engine.text.EarClipTriangulator
+import com.openscadviewer.engine.text.FontProvider
+import com.openscadviewer.engine.text.TextLayoutEngine
 import com.openscadviewer.parser.SceneNode
 import kotlin.math.*
 
@@ -9,6 +13,9 @@ import kotlin.math.*
  * Produces vertices, normals, and colors for rendering.
  */
 class MeshGenerator {
+
+    /** Platform font provider for text rendering. Defaults to AWT (desktop JVM). */
+    var fontProvider: FontProvider = AwtFontProvider()
 
     data class Mesh(
         val vertices: FloatArray,   // x,y,z triplets
@@ -75,8 +82,11 @@ class MeshGenerator {
             }
             is SceneNode.Circle -> generateCircle2D(node, vertices, normals, colors, transform)
             is SceneNode.Square -> generateSquare2D(node, vertices, normals, colors, transform)
-            is SceneNode.TextApprox -> generateSquare2D(
-                SceneNode.Square(node.sizeX, node.sizeY, node.center), vertices, normals, colors, transform)
+            is SceneNode.Text -> {
+                if (node.text.isNotEmpty() && node.size > 0) {
+                    generateText(node, vertices, normals, colors, transform)
+                }
+            }
             is SceneNode.Polygon -> generatePolygon2D(node, vertices, normals, colors, transform)
             is SceneNode.LinearExtrude -> generateLinearExtrude(node, vertices, normals, colors, transform)
             is SceneNode.Translate -> {
@@ -343,6 +353,49 @@ class MeshGenerator {
         }
     }
 
+    /**
+     * Generate 2D triangulated mesh from text glyph outlines at Z=0.
+     */
+    private fun generateText(
+        node: SceneNode.Text,
+        vertices: MutableList<Float>,
+        normals: MutableList<Float>,
+        colors: MutableList<Float>,
+        transform: Matrix4
+    ) {
+        val positioned = TextLayoutEngine.layout(
+            node.text, node.size.toFloat(), node.halign, node.valign,
+            node.spacing.toFloat(), node.direction, fontProvider, node.font
+        )
+
+        for (glyph in positioned) {
+            val translated = glyph.outline.contours.map { contour ->
+                contour.map { (x, y) -> Pair(x + glyph.x, y + glyph.y) }
+            }
+            val triangles = EarClipTriangulator.triangulate(translated)
+            for (tri in triangles) {
+                addTriangle2D(tri, vertices, normals, colors, transform)
+            }
+        }
+    }
+
+    /**
+     * Add a 2D triangle (at Z=0 with normal 0,0,1) to the vertex buffers.
+     */
+    private fun addTriangle2D(
+        tri: EarClipTriangulator.Triangle,
+        vertices: MutableList<Float>,
+        normals: MutableList<Float>,
+        colors: MutableList<Float>,
+        transform: Matrix4
+    ) {
+        val normalUp = floatArrayOf(0f, 0f, 1f)
+        val p1 = floatArrayOf(tri.p1.first, tri.p1.second, 0f)
+        val p2 = floatArrayOf(tri.p2.first, tri.p2.second, 0f)
+        val p3 = floatArrayOf(tri.p3.first, tri.p3.second, 0f)
+        addTransformedTriangle(vertices, normals, colors, transform, p1, p2, p3, normalUp, normalUp, normalUp)
+    }
+
     private fun generateLinearExtrude(
         extrude: SceneNode.LinearExtrude,
         vertices: MutableList<Float>,
@@ -351,6 +404,13 @@ class MeshGenerator {
         transform: Matrix4
     ) {
         val h = extrude.height.toFloat()
+
+        // Special handling for Text child: use glyph-based extrusion with proper triangulation
+        val textChild = unwrapToText(extrude.child)
+        if (textChild != null && textChild.text.isNotEmpty() && textChild.size > 0) {
+            generateTextExtrusion(textChild, h, vertices, normals, colors, transform)
+            return
+        }
 
         // Extract 2D outline points from the child node(s)
         val outlines = extract2DOutlines(extrude.child)
@@ -418,6 +478,99 @@ class MeshGenerator {
     }
 
     /**
+     * Unwrap a node to find a Text child (skipping Color, Group with single child).
+     */
+    private fun unwrapToText(node: SceneNode): SceneNode.Text? {
+        return when (node) {
+            is SceneNode.Text -> node
+            is SceneNode.Color -> unwrapToText(node.child)
+            is SceneNode.Group -> if (node.children.size == 1) unwrapToText(node.children[0]) else null
+            else -> null
+        }
+    }
+
+    /**
+     * Generate extruded 3D mesh from text glyph outlines.
+     * Produces top face at Z=height, bottom face at Z=0, and side walls.
+     */
+    private fun generateTextExtrusion(
+        textNode: SceneNode.Text,
+        height: Float,
+        vertices: MutableList<Float>,
+        normals: MutableList<Float>,
+        colors: MutableList<Float>,
+        transform: Matrix4
+    ) {
+        val positioned = TextLayoutEngine.layout(
+            textNode.text, textNode.size.toFloat(), textNode.halign, textNode.valign,
+            textNode.spacing.toFloat(), textNode.direction, fontProvider, textNode.font
+        )
+
+        val normalUp = floatArrayOf(0f, 0f, 1f)
+        val normalDown = floatArrayOf(0f, 0f, -1f)
+
+        for (glyph in positioned) {
+            val translatedContours = glyph.outline.contours.map { contour ->
+                contour.map { (x, y) -> Pair(x + glyph.x, y + glyph.y) }
+            }
+
+            // Triangulate the glyph polygon (handles holes via ear-clipping)
+            val triangles = EarClipTriangulator.triangulate(translatedContours)
+
+            // Top face at Z=height (normal 0,0,1)
+            for (tri in triangles) {
+                val p1 = floatArrayOf(tri.p1.first, tri.p1.second, height)
+                val p2 = floatArrayOf(tri.p2.first, tri.p2.second, height)
+                val p3 = floatArrayOf(tri.p3.first, tri.p3.second, height)
+                addTransformedTriangle(vertices, normals, colors, transform,
+                    p1, p2, p3, normalUp, normalUp, normalUp)
+            }
+
+            // Bottom face at Z=0 (normal 0,0,-1, reversed winding)
+            for (tri in triangles) {
+                val p1 = floatArrayOf(tri.p1.first, tri.p1.second, 0f)
+                val p2 = floatArrayOf(tri.p2.first, tri.p2.second, 0f)
+                val p3 = floatArrayOf(tri.p3.first, tri.p3.second, 0f)
+                // Reverse winding: p1, p3, p2 instead of p1, p2, p3
+                addTransformedTriangle(vertices, normals, colors, transform,
+                    p1, p3, p2, normalDown, normalDown, normalDown)
+            }
+
+            // Side faces: connect top and bottom contour edges
+            for (contour in translatedContours) {
+                if (contour.size < 2) continue
+                for (i in contour.indices) {
+                    val next = (i + 1) % contour.size
+                    val x1 = contour[i].first
+                    val y1 = contour[i].second
+                    val x2 = contour[next].first
+                    val y2 = contour[next].second
+
+                    val b1 = floatArrayOf(x1, y1, 0f)
+                    val b2 = floatArrayOf(x2, y2, 0f)
+                    val t1 = floatArrayOf(x1, y1, height)
+                    val t2 = floatArrayOf(x2, y2, height)
+
+                    // Compute outward normal for this wall segment
+                    val dx = x2 - x1
+                    val dy = y2 - y1
+                    val len = sqrt(dx * dx + dy * dy)
+                    val wallNormal = if (len > 0.0001f)
+                        floatArrayOf(dy / len, -dx / len, 0f)
+                    else
+                        floatArrayOf(1f, 0f, 0f)
+
+                    // Two triangles per quad
+                    addTransformedTriangle(vertices, normals, colors, transform,
+                        b1, b2, t2, wallNormal, wallNormal, wallNormal)
+                    addTransformedTriangle(vertices, normals, colors, transform,
+                        b1, t2, t1, wallNormal, wallNormal, wallNormal)
+                }
+            }
+        }
+    }
+
+    /**
      * Extracts 2D outline point lists from a SceneNode (for use by linear_extrude).
      * Returns a list of outlines (each is a list of [x, y] float arrays).
      */
@@ -445,18 +598,23 @@ class MeshGenerator {
                 )
                 listOf(points)
             }
-            is SceneNode.TextApprox -> {
-                val sx = node.sizeX.toFloat()
-                val sy = node.sizeY.toFloat()
-                val ox = if (node.center) -sx / 2f else 0f
-                val oy = if (node.center) -sy / 2f else 0f
-                val points = listOf(
-                    floatArrayOf(ox, oy),
-                    floatArrayOf(ox + sx, oy),
-                    floatArrayOf(ox + sx, oy + sy),
-                    floatArrayOf(ox, oy + sy)
-                )
-                listOf(points)
+            is SceneNode.Text -> {
+                if (node.text.isNotEmpty() && node.size > 0) {
+                    // Use real glyph contours from font provider
+                    val positioned = TextLayoutEngine.layout(
+                        node.text, node.size.toFloat(), node.halign, node.valign,
+                        node.spacing.toFloat(), node.direction, fontProvider, node.font
+                    )
+                    positioned.flatMap { glyph ->
+                        glyph.outline.contours.map { contour ->
+                            contour.map { (x, y) ->
+                                floatArrayOf(x + glyph.x, y + glyph.y)
+                            }
+                        }
+                    }
+                } else {
+                    emptyList()
+                }
             }
             is SceneNode.Polygon -> {
                 val points = node.points.map { (x, y) ->

@@ -32,6 +32,17 @@ abstract class CategoryBenchmarkTest {
         System.getProperty("benchmark.stl.outputDir", "build/benchmark-stl/")
     )
 
+    companion object {
+        /**
+         * Load a classpath resource as a trimmed string.
+         * Used by custom benchmark test classes to load .scad code from resource files.
+         */
+        fun loadResource(path: String): String =
+            CategoryBenchmarkTest::class.java.classLoader.getResourceAsStream(path)
+                ?.bufferedReader()?.use { it.readText() }?.trim()
+                ?: error("Resource not found: $path")
+    }
+
     /**
      * Override to provide the test cases for this category.
      */

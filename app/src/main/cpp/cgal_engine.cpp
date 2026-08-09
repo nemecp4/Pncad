@@ -5,6 +5,7 @@
 #include "nlohmann/json.hpp"
 #include "cgal_compute.h"
 #include "scene_builder.h"
+#include "text_renderer.h"
 
 #define LOG_TAG "CgalEngine"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -12,6 +13,9 @@
 using json = nlohmann::json;
 
 static std::atomic<bool> g_cancel_flag{false};
+
+// Reference to the text renderer in scene_builder.cpp
+extern TextRenderer& get_text_renderer();
 
 /**
  * Helper: Build a NativeResult jobject with mesh data (success case).
@@ -143,4 +147,16 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_openscadviewer_engine_CgalComputeEngine_nativeCancel(
     JNIEnv* /* env */, jobject /* thiz */, jlong /* handle */) {
     g_cancel_flag.store(true);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_openscadviewer_engine_CgalComputeEngine_nativeSetFontPath(
+    JNIEnv* env, jobject /* thiz */, jstring fontPath) {
+    if (!fontPath) return;
+
+    const char* path = env->GetStringUTFChars(fontPath, nullptr);
+    if (path) {
+        get_text_renderer().set_font_path(std::string(path));
+        env->ReleaseStringUTFChars(fontPath, path);
+    }
 }

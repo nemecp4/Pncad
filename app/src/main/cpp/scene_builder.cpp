@@ -1,4 +1,5 @@
 #include "scene_builder.h"
+#include "text_renderer.h"
 #include <CGAL/Polyhedron_incremental_builder_3.h>
 #include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
 #include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
@@ -16,6 +17,14 @@ using HalfedgeDS = Polyhedron::HalfedgeDS;
 
 // Default color: (0.6, 0.7, 0.85, 1.0)
 const SceneColor SceneColor::DEFAULT = {0.6f, 0.7f, 0.85f, 1.0f};
+
+// Static text renderer instance for handling text() nodes
+static TextRenderer g_text_renderer;
+
+// Expose text renderer for JNI font path configuration
+TextRenderer& get_text_renderer() {
+    return g_text_renderer;
+}
 
 // ---------------------------------------------------------------------------
 // Cancellation check helper
@@ -66,7 +75,7 @@ private:
 // Helper: Build a Nef polyhedron from vertices and triangle faces
 // ---------------------------------------------------------------------------
 
-static Nef_polyhedron make_nef_from_mesh(const std::vector<Point_3>& vertices,
+Nef_polyhedron make_nef_from_mesh(const std::vector<Point_3>& vertices,
                                          const std::vector<std::array<int, 3>>& faces) {
     // Validate face indices before passing to the incremental builder.
     // Out-of-range indices trigger an assertion in Polyhedron_incremental_builder_3.
@@ -463,6 +472,21 @@ static Nef_polyhedron build_linear_extrude(double height, const json& child_node
             }
         }
         return build_linear_extrude_polygon(height, points);
+    } else if (child_type == "text") {
+        std::string text_content = child_node.value("text", "");
+        double size = child_node.value("size", 10.0);
+        std::string font = child_node.value("font", "Liberation Sans");
+        std::string halign = child_node.value("halign", "left");
+        std::string valign = child_node.value("valign", "baseline");
+        double spacing = child_node.value("spacing", 1.0);
+        std::string direction = child_node.value("direction", "ltr");
+
+        if (!text_content.empty() && size > 0) {
+            return g_text_renderer.build_text(
+                text_content, size, font, halign, valign, spacing, direction,
+                height, cancel_flag);
+        }
+        return Nef_polyhedron();
     } else if (child_type == "union" || child_type == "group") {
         // Extrude each child and union the results
         if (!child_node.contains("children") || !child_node["children"].is_array()) {
@@ -680,6 +704,26 @@ static void process_node(const json& node, const SceneColor& color,
         Nef_polyhedron nef = build_cylinder(height, r1, r2, center, segments);
         if (!nef.is_empty()) {
             result.push_back({std::move(nef), color});
+        }
+        return;
+    }
+
+    if (type == "text") {
+        std::string text_content = node.value("text", "");
+        double size = node.value("size", 10.0);
+        std::string font = node.value("font", "Liberation Sans");
+        std::string halign = node.value("halign", "left");
+        std::string valign = node.value("valign", "baseline");
+        double spacing = node.value("spacing", 1.0);
+        std::string direction = node.value("direction", "ltr");
+
+        if (!text_content.empty() && size > 0) {
+            Nef_polyhedron nef = g_text_renderer.build_text(
+                text_content, size, font, halign, valign, spacing, direction,
+                0.0, cancel_flag);
+            if (!nef.is_empty()) {
+                result.push_back({std::move(nef), color});
+            }
         }
         return;
     }

@@ -4,6 +4,7 @@ import com.openscadviewer.parser.SceneNode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 
 /**
  * ComputeEngine implementation that delegates to native CGAL library via JNI.
@@ -16,6 +17,7 @@ class CgalComputeEngine : ComputeEngine {
     private var nativeHandle: Long = 0
     private var libraryLoaded = false
     private var loadAttempted = false
+    private var fontPathInitialized = false
 
     override suspend fun compute(scene: SceneNode, progress: ProgressCallback?): Result<MeshResult> {
         if (!isAvailable()) {
@@ -23,6 +25,9 @@ class CgalComputeEngine : ComputeEngine {
             progress?.onProgress("${error.category}: ${error.message}", "ERROR")
             return Result.failure(ComputeException(error))
         }
+
+        // Ensure font path is initialized for text rendering
+        initFontPathIfNeeded()
 
         progress?.onProgress("Parsing OpenSCAD source...")
 
@@ -107,7 +112,76 @@ class CgalComputeEngine : ComputeEngine {
         }
     }
 
+    /**
+     * Initialize the font path for desktop/benchmark use.
+     * On desktop (non-Android), the font is loaded from the classpath resource
+     * (bundled in shared-base) or from a known relative path.
+     * On Android, the font path is set externally via setFontPath() from EngineManager.
+     */
+    private fun initFontPathIfNeeded() {
+        if (fontPathInitialized) return
+        fontPathInitialized = true
+
+        // Try to find the font from classpath resource (desktop/benchmark JVM)
+        val resourceUrl = javaClass.classLoader?.getResource("fonts/LiberationSans-Regular.ttf")
+        if (resourceUrl != null) {
+            val resourcePath = resourceUrl.path
+            // If it's a file URL (not inside a JAR), use it directly
+            if (resourceUrl.protocol == "file") {
+                nativeSetFontPath(resourcePath)
+                return
+            }
+            // If inside a JAR, extract to temp file
+            try {
+                val tempDir = File(System.getProperty("java.io.tmpdir"), "pncad-fonts")
+                tempDir.mkdirs()
+                val tempFont = File(tempDir, "LiberationSans-Regular.ttf")
+                if (!tempFont.exists()) {
+                    javaClass.classLoader?.getResourceAsStream("fonts/LiberationSans-Regular.ttf")?.use { input ->
+                        tempFont.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+                if (tempFont.exists()) {
+                    nativeSetFontPath(tempFont.absolutePath)
+                    return
+                }
+            } catch (_: Exception) {
+                // Fall through to relative path search
+            }
+        }
+
+        // Fallback: try known relative paths from project root (for desktop builds)
+        val relativePaths = listOf(
+            "shared-base/src/main/resources/fonts/LiberationSans-Regular.ttf",
+            "../shared-base/src/main/resources/fonts/LiberationSans-Regular.ttf",
+            "../../shared-base/src/main/resources/fonts/LiberationSans-Regular.ttf"
+        )
+        for (relPath in relativePaths) {
+            val file = File(relPath)
+            if (file.exists()) {
+                nativeSetFontPath(file.absolutePath)
+                return
+            }
+        }
+    }
+
     // JNI native methods
     private external fun nativeCompute(sceneJson: ByteArray, progressCallback: (String) -> Unit): NativeResult
     private external fun nativeCancel(handle: Long)
+    private external fun nativeSetFontPath(fontPath: String)
+
+    /**
+     * Set the font file path for the native text renderer.
+     * Must be called before compute() to enable text rendering in CGAL.
+     * On Android, this should be the path to the font extracted from APK assets.
+     * On desktop, this should be a filesystem path to the bundled font file.
+     */
+    fun setFontPath(path: String) {
+        if (isAvailable()) {
+            nativeSetFontPath(path)
+            fontPathInitialized = true
+        }
+    }
 }

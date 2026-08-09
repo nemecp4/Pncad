@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(cgal_engine CXX)
+project(cgal_engine C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -59,6 +59,8 @@ add_library(cgal_engine SHARED
     cgal_compute.cpp
     scene_builder.cpp
     mesh_extractor.cpp
+    text_renderer.cpp
+    ttf2mesh/ttf2mesh.c
 )
 
 target_link_libraries(cgal_engine

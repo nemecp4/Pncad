@@ -92,14 +92,16 @@ sealed class SceneNode {
     ) : SceneNode()
 
     /**
-     * Approximation of a text() call as a rectangle.
-     * Used by the parser since proper font rendering is not available.
-     * CGAL preprocessor skips these nodes to avoid non-manifold geometry
-     * from overlapping text rectangles in complex models.
+     * Represents a text() module call with all standard parameters.
+     * Produces 2D polygon geometry from font glyph outlines.
      */
-    data class TextApprox(
-        val sizeX: Double,
-        val sizeY: Double,
-        val center: Boolean
+    data class Text(
+        val text: String,
+        val size: Double = 10.0,
+        val font: String = "Liberation Sans",
+        val halign: String = "left",     // "left", "center", "right"
+        val valign: String = "baseline", // "baseline", "bottom", "top", "center"
+        val spacing: Double = 1.0,
+        val direction: String = "ltr"    // "ltr", "rtl"
     ) : SceneNode()
 }

@@ -6,6 +6,7 @@
 #include <CGAL/Aff_transformation_3.h>
 #include "nlohmann/json.hpp"
 #include <atomic>
+#include <array>
 #include <vector>
 
 // CGAL type aliases
@@ -47,3 +48,14 @@ struct SceneObject {
  */
 std::vector<SceneObject> build_scene(const nlohmann::json& node,
                                      std::atomic<bool>& cancel_flag);
+
+/**
+ * Build a Nef polyhedron from vertices and triangle faces.
+ * Used by primitive builders and the text renderer to convert mesh data to Nef.
+ *
+ * @param vertices   List of 3D points
+ * @param faces      List of triangle face index triples
+ * @return Nef polyhedron (empty if input is invalid or non-manifold)
+ */
+Nef_polyhedron make_nef_from_mesh(const std::vector<Point_3>& vertices,
+                                  const std::vector<std::array<int, 3>>& faces);

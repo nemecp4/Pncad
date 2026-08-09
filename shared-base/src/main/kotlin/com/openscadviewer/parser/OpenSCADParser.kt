@@ -1600,16 +1600,20 @@ class OpenSCADParser {
     }
 
     /**
-     * Parse text() call — returns a placeholder square approximating character bounding box.
-     * Extracts text content and size parameters to compute proper width.
+     * Parse text() call — extracts all parameters and returns SceneNode.Text with glyph data.
      */
     private fun parseText(): SceneNode {
         skipWhitespaceAndComments()
         var textContent = ""
-        var size = 5.5
+        var size = 10.0
+        var font = "Liberation Sans"
+        var halign = "left"
+        var valign = "baseline"
+        var spacing = 1.0
+        var direction = "ltr"
+
         if (pos < input.length && input[pos] == '(') {
             pos++; skipWhitespaceAndComments()
-            // Extract params content for parsing
             val paramsStr = extractParenContent()
             val parts = splitParams(paramsStr)
             for (part in parts) {
@@ -1619,8 +1623,27 @@ class OpenSCADParser {
                     val name = trimmed.substring(0, eqIdx).trim()
                     val valueStr = trimmed.substring(eqIdx + 1).trim()
                     when (name) {
+                        "text" -> {
+                            textContent = if (valueStr.startsWith("\"")) {
+                                valueStr.removeSurrounding("\"")
+                            } else {
+                                // Variable reference for text content
+                                val subParser = OpenSCADParser()
+                                subParser.parseStartTime = parseStartTime
+                                subParser.vars.putAll(vars)
+                                subParser.functions.putAll(functions)
+                                subParser.input = valueStr
+                                subParser.pos = 0
+                                val resolved = subParser.parseExpressionValueInner()
+                                if (resolved is ScadValue.Str) resolved.value else ""
+                            }
+                        }
                         "size" -> size = evaluateParamValue(valueStr)
-                        // font, halign, valign — skip
+                        "font" -> font = valueStr.removeSurrounding("\"")
+                        "halign" -> halign = valueStr.removeSurrounding("\"")
+                        "valign" -> valign = valueStr.removeSurrounding("\"")
+                        "spacing" -> spacing = evaluateParamValue(valueStr)
+                        "direction" -> direction = valueStr.removeSurrounding("\"")
                     }
                 } else {
                     // First positional parameter is text content
@@ -1645,11 +1668,7 @@ class OpenSCADParser {
             }
         }
         skipSemicolon()
-        // Compute width based on text content
-        val charCount = if (textContent.isNotEmpty()) textContent.length else 1
-        val width = charCount.toDouble() * size * 0.7
-        val height = size
-        return SceneNode.TextApprox(width, height, true)
+        return SceneNode.Text(textContent, size, font, halign, valign, spacing, direction)
     }
 
     // --- Module and For Loop support ---

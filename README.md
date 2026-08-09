@@ -10,15 +10,61 @@ An Android application that reads OpenSCAD (.scad) files, provides syntax-highli
 - **File Picker** to open .scad files from device storage
 - **Touch Controls**: single-finger orbit, two-finger pan, pinch to zoom
 
-## Supported OpenSCAD Primitives
+## Supported OpenSCAD Constructs
 
-- `cube`, `sphere`, `cylinder`
-- `circle`, `square`, `polygon`
-- `translate`, `rotate`, `scale`
-- `union`, `difference`, `intersection`
-- `color`, `linear_extrude`
-- `hull`, `minkowski`
+**3D Primitives:** `cube`, `sphere`, `cylinder`
+
+**2D Primitives:** `circle`, `square`, `polygon`, `text`
+
+**Transformations:** `translate`, `rotate`, `scale`, `color`
+
+**CSG Operations:** `union`, `difference`, `intersection`, `hull`, `minkowski`
+
+**Extrusion:** `linear_extrude`
+
+**Language Features:**
 - Variables and basic math expressions
+- User-defined modules (with parameters and defaults)
+- User-defined functions
+- `for` loops
+- Ternary operator, string/array indexing
+
+## Unsupported OpenSCAD Constructs
+
+The following OpenSCAD features are not yet implemented:
+
+**Primitives & Modules:**
+- `polyhedron`
+- `surface`, `import` (STL/DXF/SVG import)
+
+**Transformations:**
+- `mirror`
+- `multmatrix`
+- `resize`
+- `offset`
+
+**Extrusion & Projection:**
+- `rotate_extrude`
+- `projection`
+
+**Language Features:**
+- `include` / `use` (external file imports)
+- `if` / `else` conditional statements
+- `let`, `each`, `assert`, `echo`
+- List comprehensions
+- `children()`, `$children`
+- Recursive modules
+- Special variables beyond `$fn`, `$fa`, `$fs`
+
+**Text Parameters:**
+- `font` resolves to bundled Liberation Sans if the specified font is unavailable
+- `$fn` / `$fa` / `$fs` are not applied to text curve flattening
+
+**Other:**
+- `render`
+- Named colors (only `[r, g, b]` / `[r, g, b, a]` vector notation and common color name strings)
+- Animation (`$t`)
+- Customizer syntax
 
 ## Building
 
@@ -51,9 +97,9 @@ com.openscadviewer/
 
 ## Limitations
 
-- CSG operations (difference, intersection) display all geometry without boolean subtraction (proper CSG requires BSP tree implementation)
-- Module definitions and `include`/`use` are not yet supported
-- Only a subset of OpenSCAD is implemented
+- `hull` and `minkowski` are parsed but treated as `union` (no convex hull or Minkowski sum computation)
+- CSG operations in the Kotlin engine render all children without true Boolean subtraction; the CGAL engine provides exact CSG
+- Only a subset of OpenSCAD is implemented (see Unsupported Constructs above)
 
 ## License
 

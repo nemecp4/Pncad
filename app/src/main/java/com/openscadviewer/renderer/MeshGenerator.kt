@@ -59,8 +59,15 @@ class MeshGenerator {
             }
             is SceneNode.Circle -> generateCircle2D(node, vertices, normals, colors, transform)
             is SceneNode.Square -> generateSquare2D(node, vertices, normals, colors, transform)
-            is SceneNode.TextApprox -> generateSquare2D(
-                SceneNode.Square(node.sizeX, node.sizeY, node.center), vertices, normals, colors, transform)
+            is SceneNode.Text -> {
+                if (node.text.isNotEmpty() && node.size > 0) {
+                    // Placeholder: properly-sized flat rectangle at Z=0
+                    // Real glyph rendering will use AndroidFontProvider (task 8.1)
+                    val width = node.text.length * node.size * 0.6
+                    val height = node.size
+                    generateTextPlaceholder(width.toFloat(), height.toFloat(), vertices, normals, colors, transform)
+                }
+            }
             is SceneNode.Polygon -> generatePolygon2D(node, vertices, normals, colors, transform)
             is SceneNode.LinearExtrude -> generateLinearExtrude(node, vertices, normals, colors, transform)
             is SceneNode.Translate -> {
@@ -329,6 +336,15 @@ class MeshGenerator {
     ) {
         val h = extrude.height.toFloat()
 
+        // Special handling for Text child: generate an extruded rectangle placeholder
+        val child = extrude.child
+        if (child is SceneNode.Text && child.text.isNotEmpty() && child.size > 0) {
+            val width = (child.text.length * child.size * 0.6).toFloat()
+            val height = child.size.toFloat()
+            generateExtrudedTextPlaceholder(width, height, h, vertices, normals, colors, transform)
+            return
+        }
+
         // Generate bottom face at z=0
         generateNode(extrude.child, vertices, normals, colors, transform)
         // Generate top face at z=height
@@ -340,6 +356,93 @@ class MeshGenerator {
     }
 
     // --- Utility methods ---
+
+    /**
+     * Generates a flat rectangle at Z=0 as a placeholder for text.
+     * Produces 2 triangles with normal (0,0,1).
+     * Width = text.length * size * 0.6, Height = size.
+     */
+    private fun generateTextPlaceholder(
+        width: Float,
+        height: Float,
+        vertices: MutableList<Float>,
+        normals: MutableList<Float>,
+        colors: MutableList<Float>,
+        transform: Matrix4
+    ) {
+        val normalUp = floatArrayOf(0f, 0f, 1f)
+        val p0 = floatArrayOf(0f, 0f, 0f)
+        val p1 = floatArrayOf(width, 0f, 0f)
+        val p2 = floatArrayOf(width, height, 0f)
+        val p3 = floatArrayOf(0f, height, 0f)
+
+        addTransformedTriangle(vertices, normals, colors, transform, p0, p1, p2, normalUp, normalUp, normalUp)
+        addTransformedTriangle(vertices, normals, colors, transform, p0, p2, p3, normalUp, normalUp, normalUp)
+    }
+
+    /**
+     * Generates a simple extruded rectangle (box) as a placeholder for extruded text.
+     * Produces a closed 3D mesh with bottom face at Z=0 and top face at Z=extrudeHeight.
+     */
+    private fun generateExtrudedTextPlaceholder(
+        width: Float,
+        height: Float,
+        extrudeHeight: Float,
+        vertices: MutableList<Float>,
+        normals: MutableList<Float>,
+        colors: MutableList<Float>,
+        transform: Matrix4
+    ) {
+        // Use a cube-like approach: 6 faces, 12 triangles
+        val sx = width
+        val sy = height
+        val sz = extrudeHeight
+
+        val v = arrayOf(
+            floatArrayOf(0f, 0f, 0f),       // 0: bottom-left-front
+            floatArrayOf(sx, 0f, 0f),        // 1: bottom-right-front
+            floatArrayOf(sx, sy, 0f),        // 2: top-right-front
+            floatArrayOf(0f, sy, 0f),        // 3: top-left-front
+            floatArrayOf(0f, 0f, sz),        // 4: bottom-left-back
+            floatArrayOf(sx, 0f, sz),        // 5: bottom-right-back
+            floatArrayOf(sx, sy, sz),        // 6: top-right-back
+            floatArrayOf(0f, sy, sz)         // 7: top-left-back
+        )
+
+        val faces = arrayOf(
+            // top (z+)
+            intArrayOf(4, 5, 6), intArrayOf(4, 6, 7),
+            // bottom (z-)
+            intArrayOf(1, 0, 3), intArrayOf(1, 3, 2),
+            // right (x+)
+            intArrayOf(5, 1, 2), intArrayOf(5, 2, 6),
+            // left (x-)
+            intArrayOf(0, 4, 7), intArrayOf(0, 7, 3),
+            // front (y+)
+            intArrayOf(7, 6, 2), intArrayOf(7, 2, 3),
+            // back (y-)
+            intArrayOf(0, 1, 5), intArrayOf(0, 5, 4)
+        )
+
+        val faceNormals = arrayOf(
+            floatArrayOf(0f, 0f, 1f), floatArrayOf(0f, 0f, 1f),
+            floatArrayOf(0f, 0f, -1f), floatArrayOf(0f, 0f, -1f),
+            floatArrayOf(1f, 0f, 0f), floatArrayOf(1f, 0f, 0f),
+            floatArrayOf(-1f, 0f, 0f), floatArrayOf(-1f, 0f, 0f),
+            floatArrayOf(0f, 1f, 0f), floatArrayOf(0f, 1f, 0f),
+            floatArrayOf(0f, -1f, 0f), floatArrayOf(0f, -1f, 0f)
+        )
+
+        for (i in faces.indices) {
+            val face = faces[i]
+            val normal = faceNormals[i]
+            addTransformedTriangle(
+                vertices, normals, colors, transform,
+                v[face[0]], v[face[1]], v[face[2]],
+                normal, normal, normal
+            )
+        }
+    }
 
     private fun addTransformedTriangle(
         vertices: MutableList<Float>,
