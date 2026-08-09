@@ -1,7 +1,6 @@
 package com.openscadviewer.engine
 
 import com.openscadviewer.engine.csg.Csg
-import com.openscadviewer.engine.text.AwtFontProvider
 import com.openscadviewer.engine.text.EarClipTriangulator
 import com.openscadviewer.engine.text.FontProvider
 import com.openscadviewer.engine.text.TextLayoutEngine
@@ -14,8 +13,31 @@ import kotlin.math.*
  */
 class MeshGenerator {
 
-    /** Platform font provider for text rendering. Defaults to AWT (desktop JVM). */
-    var fontProvider: FontProvider = AwtFontProvider()
+    /**
+     * Platform font provider for text rendering.
+     * On Android, set to AndroidFontProvider via KotlinComputeEngine constructor.
+     * On desktop/benchmark, defaults to AwtFontProvider (loaded lazily to avoid
+     * java.awt.Font class loading on Android where AWT is unavailable).
+     */
+    var fontProvider: FontProvider = createDefaultFontProvider()
+
+    private companion object {
+        fun createDefaultFontProvider(): FontProvider {
+            return try {
+                // AwtFontProvider is only available on desktop JVM (not Android)
+                val clazz = Class.forName("com.openscadviewer.engine.text.AwtFontProvider")
+                clazz.getDeclaredConstructor().newInstance() as FontProvider
+            } catch (e: Exception) {
+                // Fallback: no-op provider that returns null outlines (text won't render)
+                object : FontProvider {
+                    override fun getGlyphOutline(char: Char, fontName: String, size: Float) = null
+                    override fun getFontMetrics(fontName: String, size: Float) =
+                        com.openscadviewer.engine.text.FontMetrics(0f, 0f, 0f)
+                    override fun isFontAvailable(fontName: String) = false
+                }
+            }
+        }
+    }
 
     data class Mesh(
         val vertices: FloatArray,   // x,y,z triplets
