@@ -191,7 +191,43 @@ if [ "$PLATFORM" = "macos" ]; then
     )
     SHARED_FLAG="-dynamiclib"
 else
-    INCLUDE_FLAGS+=(-I/usr/include)
+    # Detect CGAL headers: .build-deps > system
+    CGAL_INCLUDE=""
+    for dir in "$PROJECT_ROOT/.build-deps/CGAL-"*/include "$PROJECT_ROOT/app/vendor/cgal/include" /usr/include; do
+        if [ -f "$dir/CGAL/Exact_predicates_exact_constructions_kernel.h" ]; then
+            CGAL_INCLUDE="$dir"
+            break
+        fi
+    done
+    if [ -z "$CGAL_INCLUDE" ]; then
+        echo "ERROR: CGAL headers not found."
+        echo "Install with your package manager (e.g., sudo pacman -S cgal, sudo apt install libcgal-dev)"
+        echo "or run ./scripts/build-deps.sh to download into .build-deps/"
+        exit 1
+    fi
+    echo "CGAL headers: $CGAL_INCLUDE"
+
+    # Detect Boost headers: .build-deps > system
+    BOOST_INCLUDE=""
+    for dir in "$PROJECT_ROOT/.build-deps/boost_"*/. "$PROJECT_ROOT/app/vendor/boost/include" /usr/include; do
+        if [ -d "$dir/boost" ] || [ -f "$dir/boost/version.hpp" ]; then
+            BOOST_INCLUDE="$dir"
+            break
+        fi
+    done
+    if [ -z "$BOOST_INCLUDE" ]; then
+        echo "ERROR: Boost headers not found."
+        echo "Install with your package manager (e.g., sudo pacman -S boost, sudo apt install libboost-dev)"
+        echo "or run ./scripts/build-deps.sh to download into .build-deps/"
+        exit 1
+    fi
+    echo "Boost headers: $BOOST_INCLUDE"
+
+    INCLUDE_FLAGS+=(
+        -I"$CGAL_INCLUDE"
+        -I"$BOOST_INCLUDE"
+        -I/usr/include
+    )
     SHARED_FLAG="-shared"
 fi
 
