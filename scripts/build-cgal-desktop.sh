@@ -100,15 +100,20 @@ else
     CXX="g++"
 
     # Find JDK include path on Linux
+    # Override with: JAVA_HOME=/path/to/jdk ./scripts/build-cgal-desktop.sh
     JDK_INCLUDE=""
-    for jdk in /usr/lib/jvm/java-17-openjdk-amd64 /usr/lib/jvm/java-17-openjdk /usr/lib/jvm/default-java; do
-        if [ -f "$jdk/include/jni.h" ]; then
-            JDK_INCLUDE="$jdk/include"
-            break
-        fi
-    done
+    if [ -n "$JAVA_HOME" ] && [ -f "$JAVA_HOME/include/jni.h" ]; then
+        JDK_INCLUDE="$JAVA_HOME/include"
+    else
+        for jdk in /usr/lib/jvm/java-*-openjdk-amd64 /usr/lib/jvm/java-*-openjdk /usr/lib/jvm/default-java; do
+            if [ -f "$jdk/include/jni.h" ]; then
+                JDK_INCLUDE="$jdk/include"
+                break
+            fi
+        done
+    fi
     if [ -z "$JDK_INCLUDE" ]; then
-        echo "ERROR: jni.h not found. Install JDK 17: sudo apt install openjdk-17-jdk"
+        echo "ERROR: jni.h not found. Install a JDK (sudo apt install default-jdk) or set JAVA_HOME."
         exit 1
     fi
 
