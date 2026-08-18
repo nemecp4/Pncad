@@ -35,6 +35,12 @@ import com.openscadviewer.editor.DocumentScanner
 import com.openscadviewer.editor.KeywordProvider
 import com.openscadviewer.editor.MathProvider
 import com.openscadviewer.editor.SyntaxHighlighter
+import com.openscadviewer.file.CloseDialogChoice
+import com.openscadviewer.file.FileBarController
+import com.openscadviewer.file.FileMenuPopup
+import com.openscadviewer.file.FileSession
+import com.openscadviewer.file.FileViewModel
+import com.openscadviewer.file.OpenFilesMenuPopup
 import com.openscadviewer.engine.ComputeException
 import com.openscadviewer.engine.EngineManager
 import com.openscadviewer.engine.EngineType
@@ -56,6 +62,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PICK_SCAD_FILE = 1001
         private const val SAVE_STL_FILE = 1002
+        private const val SAVE_AS_FILE = 1003
     }
 
     private lateinit var toolbar: MaterialToolbar
@@ -70,6 +77,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCancelCompute: MaterialButton
 
     private lateinit var viewModel: MainViewModel
+    private lateinit var fileViewModel: FileViewModel
+    private lateinit var fileBarController: FileBarController
+    private var isLoadingContent = false
 
     private val isTabletLayout: Boolean by lazy {
         findViewById<View>(R.id.paneDivider) != null
@@ -128,6 +138,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
+        fileViewModel = ViewModelProvider(this)[FileViewModel::class.java]
         engineManager = EngineManager(this)
 
         initViews()
@@ -135,15 +146,13 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupTabLayout()
         setupButtons()
+        setupFileManagement()
         setupCodeEditor()
         setupConsole()
         setupViewControls()
 
-        // Check if opened with a .scad file intent
-        handleIncomingIntent(intent)
-
-        // Restore state from ViewModel after all setup is complete
-        restoreStateFromViewModel()
+        // Restore file session on launch (handles intent URI or persisted URI)
+        fileViewModel.restoreOnLaunch(intent?.data)
     }
 
     private fun initViews() {
@@ -236,10 +245,158 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
-        findViewById<View>(R.id.btnOpenFile).setOnClickListener { openFilePicker() }
         findViewById<View>(R.id.btnPreview).setOnClickListener { generatePreview() }
         findViewById<View>(R.id.btnRender).setOnClickListener { renderAndExportSTL() }
         btnCancelCompute.setOnClickListener { cancelComputation() }
+    }
+
+    private fun setupFileManagement() {
+        val btnFileMenu = findViewById<ImageButton>(R.id.btnFileMenu)
+        val btnOpenFilesMenu = findViewById<ImageButton>(R.id.btnOpenFilesMenu)
+
+        val fileMenuPopup = FileMenuPopup(
+            context = this,
+            onOpen = { fileViewModel.openFilePicker() },
+            onSave = { fileViewModel.save() },
+            onSaveAs = { fileViewModel.saveAs() },
+            onClose = {
+                val action = fileViewModel.closeWithConfirmation()
+                if (action == FileViewModel.CloseAction.PROCEED) {
+                    fileViewModel.closeActiveFile()
+                }
+            }
+        )
+
+        val openFilesMenuPopup = OpenFilesMenuPopup(
+            context = this,
+            onFileSelected = { sessionId -> fileViewModel.switchToFile(sessionId) }
+        )
+
+        fileBarController = FileBarController(
+            btnFileMenu = btnFileMenu,
+            btnOpenFilesMenu = btnOpenFilesMenu,
+            fileMenuPopup = fileMenuPopup,
+            openFilesMenuPopup = openFilesMenuPopup,
+            getSessionsData = {
+                val sessions = fileViewModel.sessions.value ?: emptyList()
+                val activeId = fileViewModel.activeSession.value?.id
+                Pair(sessions, activeId)
+            }
+        )
+        fileBarController.setup()
+
+        // Observe active session — update editor text and status bar
+        fileViewModel.activeSession.observe(this) { session ->
+            if (session != null) {
+                codeEditor.isEnabled = true
+                codeEditor.hint = getString(R.string.code_hint)
+                val editorText = codeEditor.text?.toString() ?: ""
+                if (editorText != session.content) {
+                    isLoadingContent = true
+                    codeEditor.setText(session.content)
+                    val clampedCursor = minOf(session.cursorPosition, session.content.length)
+                    codeEditor.setSelection(clampedCursor)
+                    isLoadingContent = false
+                }
+                val prefix = if (session.isDirty) "*" else ""
+                statusBar.text = "$prefix${session.displayName}"
+            } else {
+                // No active session — show empty/placeholder state
+                isLoadingContent = true
+                codeEditor.setText("")
+                codeEditor.hint = "Open a file from the File menu"
+                codeEditor.isEnabled = false
+                isLoadingContent = false
+                statusBar.text = getString(R.string.no_file_loaded)
+            }
+        }
+
+        // Observe sessions — no immediate UI update needed; OpenFilesMenu reads via getSessionsData lambda
+        fileViewModel.sessions.observe(this) { /* no-op */ }
+
+        // Observe status message
+        fileViewModel.statusMessage.observe(this) { message ->
+            if (message.isNotEmpty()) {
+                statusBar.text = message
+            }
+        }
+
+        // Observe error events — show Snackbar
+        fileViewModel.errorEvent.observe(this) { event ->
+            event.getContentIfNotHandled()?.let { message ->
+                Snackbar.make(
+                    findViewById(android.R.id.content),
+                    message,
+                    Snackbar.LENGTH_LONG
+                ).show()
+            }
+        }
+
+        // Observe open picker event — launch SAF open document intent
+        fileViewModel.openPickerEvent.observe(this) { event ->
+            event.getContentIfNotHandled()?.let {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                }
+                startActivityForResult(intent, PICK_SCAD_FILE)
+            }
+        }
+
+        // Observe save-as event — launch SAF create document intent with suggested filename
+        fileViewModel.saveAsEvent.observe(this) { event ->
+            event.getContentIfNotHandled()?.let { suggestedName ->
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "application/octet-stream"
+                    putExtra(Intent.EXTRA_TITLE, suggestedName)
+                }
+                startActivityForResult(intent, SAVE_AS_FILE)
+            }
+        }
+
+        // Observe close confirmation event — show dialog
+        fileViewModel.closeConfirmEvent.observe(this) { event ->
+            event.getContentIfNotHandled()?.let {
+                showCloseConfirmationDialog()
+            }
+        }
+
+        // Debounced editor content change forwarding to FileViewModel
+        val contentUpdateHandler = Handler(Looper.getMainLooper())
+        var contentUpdateRunnable: Runnable? = null
+
+        codeEditor.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                if (isLoadingContent) return
+                contentUpdateRunnable?.let { contentUpdateHandler.removeCallbacks(it) }
+                contentUpdateRunnable = Runnable {
+                    val text = codeEditor.text?.toString() ?: ""
+                    val cursor = codeEditor.selectionStart
+                    fileViewModel.onEditorContentChanged(text, cursor)
+                }
+                contentUpdateHandler.postDelayed(contentUpdateRunnable!!, 300)
+            }
+        })
+    }
+
+    private fun showCloseConfirmationDialog() {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Unsaved Changes")
+            .setMessage("This file has unsaved changes. What would you like to do?")
+            .setPositiveButton("Save") { _, _ ->
+                fileViewModel.confirmClose(CloseDialogChoice.SAVE)
+            }
+            .setNegativeButton("Discard") { _, _ ->
+                fileViewModel.confirmClose(CloseDialogChoice.DISCARD)
+            }
+            .setNeutralButton("Cancel") { _, _ ->
+                fileViewModel.confirmClose(CloseDialogChoice.CANCEL)
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun setupViewControls() {
@@ -486,10 +643,13 @@ translate([0, 0, 20]) {
 
         when (requestCode) {
             PICK_SCAD_FILE -> {
-                data.data?.let { uri -> loadScadFile(uri) }
+                data.data?.let { uri -> fileViewModel.handleFileSelected(uri) }
             }
             SAVE_STL_FILE -> {
                 data.data?.let { uri -> saveSTLToUri(uri) }
+            }
+            SAVE_AS_FILE -> {
+                data.data?.let { uri -> fileViewModel.handleSaveAsDestination(uri) }
             }
         }
     }

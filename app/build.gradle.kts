@@ -7,6 +7,8 @@ android {
     namespace = "com.openscadviewer"
     compileSdk = 34
 
+    ndkVersion = "28.0.13004108"
+
     defaultConfig {
         applicationId = "com.openscadviewer"
         minSdk = 26

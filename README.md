@@ -101,6 +101,10 @@ com.openscadviewer/
 - CSG operations in the Kotlin engine render all children without true Boolean subtraction; the CGAL engine provides exact CSG
 - Only a subset of OpenSCAD is implemented (see Unsupported Constructs above)
 
+##
+next task - ad shortcut to code complete
+support for multiple files (support for include)
+improve cpu/mem reporting (currently only in console. values in labels are empty)
 ## License
 
 MIT

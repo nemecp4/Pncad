@@ -19,6 +19,16 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- File Bar for file operations and open-files list -->
+    <include
+        layout="@layout/file_bar"
+        android:id="@+id/fileBar"
+        android:layout_width="0dp"
+        android:layout_height="36dp"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Tab layout for switching between Code and Preview -->
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayout"
@@ -28,7 +38,7 @@
         app:tabTextColor="#80FFFFFF"
         app:tabSelectedTextColor="@color/white"
         app:tabIndicatorColor="@color/accent"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintTop_toBottomOf="@id/fileBar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -261,24 +271,10 @@
         app:layout_constraintEnd_toEndOf="parent">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnOpenFile"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="4dp"
-            android:text="@string/open_file"
-            app:icon="@android:drawable/ic_menu_upload"
-            app:iconGravity="textStart"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:textColor="@color/white"
-            app:strokeColor="@color/white" />
-
-        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPreview"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="4dp"
             android:layout_marginEnd="4dp"
             android:text="@string/preview"
             android:backgroundTint="@color/button_preview"

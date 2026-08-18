@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@color/code_background"
+    android:elevation="8dp"
+    android:padding="4dp">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerOpenFiles"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:overScrollMode="ifContentScrolls"
+        android:scrollbars="vertical"
+        tools:listitem="@layout/item_open_file" />
+
+</FrameLayout>
