@@ -80,7 +80,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var viewModel: MainViewModel
     private lateinit var fileViewModel: FileViewModel
-    private lateinit var fileBarController: FileBarController
+    private var fileBarController: FileBarController? = null
     private var fileTabsController: FileTabsController? = null
     private var isLoadingContent = false
 
@@ -257,40 +257,43 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFileManagement() {
-        val btnFileMenu = findViewById<ImageButton>(R.id.btnFileMenu)
-        val btnOpenFilesMenu = findViewById<ImageButton>(R.id.btnOpenFilesMenu)
+        // The file bar (menu + open-files buttons) lives only in the phone layout;
+        // tablet (sw600dp) layouts omit it, so these views may be absent.
+        val btnFileMenu = findViewById<ImageButton?>(R.id.btnFileMenu)
+        val btnOpenFilesMenu = findViewById<ImageButton?>(R.id.btnOpenFilesMenu)
 
-        val fileMenuPopup = FileMenuPopup(
-            context = this,
-            onNew = { fileViewModel.newFile() },
-            onOpen = { fileViewModel.openFilePicker() },
-            onSave = { fileViewModel.save() },
-            onSaveAs = { fileViewModel.saveAs() },
-            onClose = {
-                val action = fileViewModel.closeWithConfirmation()
-                if (action == FileViewModel.CloseAction.PROCEED) {
-                    fileViewModel.closeActiveFile()
+        if (btnFileMenu != null && btnOpenFilesMenu != null) {
+            val fileMenuPopup = FileMenuPopup(
+                context = this,
+                onNew = { fileViewModel.newFile() },
+                onOpen = { fileViewModel.openFilePicker() },
+                onSave = { fileViewModel.save() },
+                onSaveAs = { fileViewModel.saveAs() },
+                onClose = {
+                    val action = fileViewModel.closeWithConfirmation()
+                    if (action == FileViewModel.CloseAction.PROCEED) {
+                        fileViewModel.closeActiveFile()
+                    }
                 }
-            }
-        )
+            )
 
-        val openFilesMenuPopup = OpenFilesMenuPopup(
-            context = this,
-            onFileSelected = { sessionId -> fileViewModel.switchToFile(sessionId) }
-        )
+            val openFilesMenuPopup = OpenFilesMenuPopup(
+                context = this,
+                onFileSelected = { sessionId -> fileViewModel.switchToFile(sessionId) }
+            )
 
-        fileBarController = FileBarController(
-            btnFileMenu = btnFileMenu,
-            btnOpenFilesMenu = btnOpenFilesMenu,
-            fileMenuPopup = fileMenuPopup,
-            openFilesMenuPopup = openFilesMenuPopup,
-            getSessionsData = {
-                val sessions = fileViewModel.sessions.value ?: emptyList()
-                val activeId = fileViewModel.activeSession.value?.id
-                Pair(sessions, activeId)
-            }
-        )
-        fileBarController.setup()
+            fileBarController = FileBarController(
+                btnFileMenu = btnFileMenu,
+                btnOpenFilesMenu = btnOpenFilesMenu,
+                fileMenuPopup = fileMenuPopup,
+                openFilesMenuPopup = openFilesMenuPopup,
+                getSessionsData = {
+                    val sessions = fileViewModel.sessions.value ?: emptyList()
+                    val activeId = fileViewModel.activeSession.value?.id
+                    Pair(sessions, activeId)
+                }
+            ).also { it.setup() }
+        }
 
         // File tabs strip (phone layout only — the strip views live in that layout)
         val fileTabsScroll = findViewById<HorizontalScrollView?>(R.id.fileTabsScroll)
