@@ -1,10 +1,10 @@
 package com.openscadviewer
 
 import android.os.Bundle
-import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import java.io.IOException
 
@@ -34,8 +34,11 @@ class AboutActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_about)
 
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.setTitle(R.string.about_title)
+        // The app theme is NoActionBar, so host our own toolbar and use its
+        // navigation (Up) button to close the screen.
+        val toolbar = findViewById<MaterialToolbar>(R.id.aboutToolbar)
+        setSupportActionBar(toolbar)
+        toolbar.setNavigationOnClickListener { finish() }
 
         findViewById<TextView>(R.id.aboutContent).text = readAsset("about.txt")
 
@@ -77,13 +80,4 @@ class AboutActivity : AppCompatActivity() {
         }
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            android.R.id.home -> {
-                finish()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
 }
