@@ -13,6 +13,7 @@ import com.openscadviewer.R
  */
 class FileMenuPopup(
     private val context: Context,
+    private val onNew: () -> Unit,
     private val onOpen: () -> Unit,
     private val onSave: () -> Unit,
     private val onSaveAs: () -> Unit,
@@ -48,6 +49,10 @@ class FileMenuPopup(
         }
 
         // Set up click listeners
+        popupView.findViewById<View>(R.id.menuItemNew).setOnClickListener {
+            dismiss()
+            onNew()
+        }
         popupView.findViewById<View>(R.id.menuItemOpen).setOnClickListener {
             dismiss()
             onOpen()

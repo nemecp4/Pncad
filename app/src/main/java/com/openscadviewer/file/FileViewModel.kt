@@ -56,7 +56,34 @@ class FileViewModel @JvmOverloads constructor(
     // --- Concurrency guard for save ---
     private var isSaving = false
 
+    companion object {
+        /**
+         * Placeholder template inserted into a newly created file so the editor
+         * is not blank. Users replace this with their own OpenSCAD code.
+         */
+        const val NEW_FILE_TEMPLATE: String =
+            "// New OpenSCAD file\n" +
+            "// Replace this placeholder with your own code.\n\n" +
+            "cube([10, 10, 10], center = true);\n"
+    }
+
     // --- Operations ---
+
+    /**
+     * Creates a new in-memory file seeded with a placeholder template and makes it active.
+     * The file has no URI and starts dirty until saved.
+     * Respects the max-open-files cap; emits an error event when the cap is reached.
+     */
+    fun newFile() {
+        if (sessionManager.getOrderedSessions().size >= sessionManager.maxSessions) {
+            _errorEvent.value = Event("Maximum ${sessionManager.maxSessions} files open")
+            return
+        }
+        sessionManager.createUntitled(NEW_FILE_TEMPLATE)
+        refreshLiveData()
+        // An untitled file has no URI, so this clears any persisted last-active URI.
+        sessionManager.persistActiveUri()
+    }
 
     fun openFilePicker() {
         _openPickerEvent.value = Event(Unit)
@@ -219,6 +246,20 @@ class FileViewModel @JvmOverloads constructor(
         sessionManager.persistActiveUri()
     }
 
+    /**
+     * Requests closing a specific file (e.g. from a tab's close button).
+     * The target is made active first so the shared close-confirmation flow
+     * (which operates on the active session) applies to it. Returns the close
+     * action so the caller can proceed with [closeActiveFile] when no
+     * confirmation is required.
+     */
+    fun requestCloseFile(sessionId: String): CloseAction {
+        sessionManager.switchTo(sessionId) ?: return CloseAction.PROCEED
+        refreshLiveData()
+        sessionManager.persistActiveUri()
+        return closeWithConfirmation()
+    }
+
     fun onEditorContentChanged(content: String, cursorPosition: Int) {
         val active = sessionManager.getActiveSession() ?: return
         sessionManager.updateContent(active.id, content, cursorPosition)
@@ -251,17 +292,15 @@ class FileViewModel @JvmOverloads constructor(
                 refreshLiveData()
                 sessionManager.persistActiveUri()
             } else {
-                // Can't open persisted file — clear and show empty editor
+                // Can't open persisted file — clear and start with a fresh new file
                 sessionManager.clearPersistedUri()
-                _activeSession.value = null
-                _sessions.value = emptyList()
+                newFile()
             }
             return
         }
 
-        // No intent URI, no persisted URI — empty editor
-        _activeSession.value = null
-        _sessions.value = emptyList()
+        // No intent URI, no persisted URI — start with a fresh new file
+        newFile()
     }
 
     // --- Private helper ---

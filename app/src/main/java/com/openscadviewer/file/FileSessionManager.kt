@@ -118,25 +118,42 @@ open class FileSessionManager(
     }
 
     /**
-     * Creates a new untitled session with empty content.
+     * Creates a new untitled session, optionally seeded with template content.
      * The session has no URI, starts dirty (content != lastSavedContent),
      * and is placed at MRU position.
      *
      * Per requirement 8.6: a new file that has not been saved to disk starts dirty immediately.
      * We achieve this by setting lastSavedContent to a sentinel value that differs from the
-     * empty initial content.
+     * initial content (template or empty).
+     *
+     * @param content Initial content for the new file (e.g. a placeholder template). Defaults to empty.
      */
-    fun createUntitled(): FileSession {
+    fun createUntitled(content: String = ""): FileSession {
         val session = FileSession(
             uri = null,
-            displayName = "untitled.scad",
-            content = "",
+            displayName = nextUntitledName(),
+            content = content,
             lastSavedContent = UNTITLED_SENTINEL,
             cursorPosition = 0,
             lastAccessedTimestamp = System.currentTimeMillis()
         )
         sessions.add(0, session)
         return session
+    }
+
+    /**
+     * Generates a unique untitled display name. The first untitled file is
+     * "untitled.scad"; subsequent ones are "untitled-2.scad", "untitled-3.scad", etc.,
+     * avoiding collisions with names already open.
+     */
+    private fun nextUntitledName(): String {
+        val base = "untitled"
+        val ext = ".scad"
+        val existing = sessions.map { it.displayName }.toSet()
+        if ("$base$ext" !in existing) return "$base$ext"
+        var i = 2
+        while ("$base-$i$ext" in existing) i++
+        return "$base-$i$ext"
     }
 
     /**

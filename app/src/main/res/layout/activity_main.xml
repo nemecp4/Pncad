@@ -29,6 +29,27 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Open-file tabs strip -->
+    <HorizontalScrollView
+        android:id="@+id/fileTabsScroll"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:background="@color/code_background"
+        android:scrollbars="none"
+        android:fillViewport="true"
+        app:layout_constraintTop_toBottomOf="@id/fileBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:id="@+id/fileTabsContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical" />
+
+    </HorizontalScrollView>
+
     <!-- Tab layout for switching between Code and Preview -->
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayout"
@@ -38,7 +59,7 @@
         app:tabTextColor="#80FFFFFF"
         app:tabSelectedTextColor="@color/white"
         app:tabIndicatorColor="@color/accent"
-        app:layout_constraintTop_toBottomOf="@id/fileBar"
+        app:layout_constraintTop_toBottomOf="@id/fileTabsScroll"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 

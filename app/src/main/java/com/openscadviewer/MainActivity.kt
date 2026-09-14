@@ -39,6 +39,7 @@ import com.openscadviewer.file.CloseDialogChoice
 import com.openscadviewer.file.FileBarController
 import com.openscadviewer.file.FileMenuPopup
 import com.openscadviewer.file.FileSession
+import com.openscadviewer.file.FileTabsController
 import com.openscadviewer.file.FileViewModel
 import com.openscadviewer.file.OpenFilesMenuPopup
 import com.openscadviewer.engine.ComputeException
@@ -79,6 +80,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewModel: MainViewModel
     private lateinit var fileViewModel: FileViewModel
     private lateinit var fileBarController: FileBarController
+    private var fileTabsController: FileTabsController? = null
     private var isLoadingContent = false
 
     private val isTabletLayout: Boolean by lazy {
@@ -256,6 +258,7 @@ class MainActivity : AppCompatActivity() {
 
         val fileMenuPopup = FileMenuPopup(
             context = this,
+            onNew = { fileViewModel.newFile() },
             onOpen = { fileViewModel.openFilePicker() },
             onSave = { fileViewModel.save() },
             onSaveAs = { fileViewModel.saveAs() },
@@ -285,6 +288,23 @@ class MainActivity : AppCompatActivity() {
         )
         fileBarController.setup()
 
+        // File tabs strip (phone layout only — the strip views live in that layout)
+        val fileTabsScroll = findViewById<HorizontalScrollView?>(R.id.fileTabsScroll)
+        val fileTabsContainer = findViewById<LinearLayout?>(R.id.fileTabsContainer)
+        if (fileTabsScroll != null && fileTabsContainer != null) {
+            fileTabsController = FileTabsController(
+                scrollView = fileTabsScroll,
+                container = fileTabsContainer,
+                onTabSelected = { sessionId -> fileViewModel.switchToFile(sessionId) },
+                onTabClosed = { sessionId ->
+                    val action = fileViewModel.requestCloseFile(sessionId)
+                    if (action == FileViewModel.CloseAction.PROCEED) {
+                        fileViewModel.closeActiveFile()
+                    }
+                }
+            )
+        }
+
         // Observe active session — update editor text and status bar
         fileViewModel.activeSession.observe(this) { session ->
             if (session != null) {
@@ -309,10 +329,17 @@ class MainActivity : AppCompatActivity() {
                 isLoadingContent = false
                 statusBar.text = getString(R.string.no_file_loaded)
             }
+            // Keep the tabs strip in sync with the active file (highlight + dirty marker)
+            fileTabsController?.render(
+                fileViewModel.sessions.value ?: emptyList(),
+                session?.id
+            )
         }
 
-        // Observe sessions — no immediate UI update needed; OpenFilesMenu reads via getSessionsData lambda
-        fileViewModel.sessions.observe(this) { /* no-op */ }
+        // Observe sessions — rebuild the file tabs strip. OpenFilesMenu still reads via getSessionsData lambda.
+        fileViewModel.sessions.observe(this) { sessions ->
+            fileTabsController?.render(sessions, fileViewModel.activeSession.value?.id)
+        }
 
         // Observe status message
         fileViewModel.statusMessage.observe(this) { message ->

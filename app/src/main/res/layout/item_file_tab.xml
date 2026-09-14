@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/fileTabRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="12dp"
+    android:paddingEnd="6dp"
+    android:layout_marginEnd="2dp"
+    android:background="@color/code_background"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- File name (with dirty asterisk when unsaved) -->
+    <TextView
+        android:id="@+id/txtTabName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxWidth="160dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#B0FFFFFF"
+        android:textSize="13sp" />
+
+    <!-- Close affordance -->
+    <ImageView
+        android:id="@+id/btnTabClose"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="6dp"
+        android:padding="4dp"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        android:contentDescription="Close file"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        app:tint="#B0FFFFFF" />
+
+</LinearLayout>

@@ -294,11 +294,16 @@ class FileViewModelTest {
     }
 
     @Test
-    fun `restoreOnLaunch with no URI shows empty editor`() {
+    fun `restoreOnLaunch with no URI starts a new template file`() {
         viewModel.restoreOnLaunch(null)
 
-        assertNull(viewModel.activeSession.value)
-        assertEquals(emptyList<FileSession>(), viewModel.sessions.value)
+        val active = viewModel.activeSession.value
+        assertNotNull(active)
+        // New file has no URI, is seeded with the template, and starts dirty
+        assertNull(active?.uri)
+        assertEquals(FileViewModel.NEW_FILE_TEMPLATE, active?.content)
+        assertEquals(true, active?.isDirty)
+        assertEquals(1, viewModel.sessions.value?.size)
     }
 
     @Test
@@ -336,9 +341,13 @@ class FileViewModelTest {
 
         freshVm.restoreOnLaunch(null)
 
-        assertNull(freshVm.activeSession.value)
-        // Persisted URI should be cleared
+        // Persisted URI should be cleared (unreadable file), and a fresh new
+        // template file should be started in its place.
         assertNull(fakePrefs.getString("last_active_file_uri", null))
+        val active = freshVm.activeSession.value
+        assertNotNull(active)
+        assertNull(active?.uri)
+        assertEquals(FileViewModel.NEW_FILE_TEMPLATE, active?.content)
     }
 
     // =========================================================
