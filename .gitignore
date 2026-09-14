@@ -11,5 +11,6 @@ local.properties
 */build
 .build-deps
 .kotlin
-cgal-engine/.jqwik-database
-kotlin-engine/.jqwik-database
+
+# jqwik property-test failure database (regenerated per run, not source)
+.jqwik-database
