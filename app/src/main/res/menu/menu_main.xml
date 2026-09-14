@@ -25,6 +25,11 @@
     </item>
 
     <item
+        android:id="@+id/menu_console"
+        android:title="@string/console"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/menu_settings"
         android:title="@string/menu_settings"
         app:showAsAction="never" />

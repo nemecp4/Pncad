@@ -64,6 +64,11 @@ class MainActivity : AppCompatActivity() {
         private const val PICK_SCAD_FILE = 1001
         private const val SAVE_STL_FILE = 1002
         private const val SAVE_AS_FILE = 1003
+
+        // Toolbar tab indices (phone layout).
+        private const val TAB_CODE = 0
+        private const val TAB_PREVIEW = 1
+        private const val TAB_CONSOLE = 2
     }
 
     private lateinit var toolbar: MaterialToolbar
@@ -239,12 +244,17 @@ class MainActivity : AppCompatActivity() {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 val position = tab?.position ?: 0
                 currentTabPosition = position
-                viewFlipper.displayedChild = position
 
-                // When switching back to Preview tab, restore console visibility if session is active
-                if (position == 1 && ::consoleViewModel.isInitialized) {
-                    val shouldShow = consoleViewModel.isVisible.value == true
-                    consoleContainer.visibility = if (shouldShow) View.VISIBLE else View.GONE
+                // Tabs: 0 = Code, 1 = 3D Preview, 2 = Console.
+                // The console is an overlay on the preview pane, so the Console tab
+                // keeps the flipper on the preview child and reveals the overlay.
+                viewFlipper.displayedChild = if (position == TAB_CODE) TAB_CODE else TAB_PREVIEW
+
+                if (::consoleViewModel.isInitialized) {
+                    when (position) {
+                        TAB_CONSOLE -> consoleViewModel.show()
+                        else -> consoleViewModel.hide()
+                    }
                 }
 
                 updateViewControlsVisibility()
@@ -257,21 +267,40 @@ class MainActivity : AppCompatActivity() {
     private fun setupButtons() {
         findViewById<View>(R.id.btnPreview).setOnClickListener { generatePreview() }
         findViewById<View>(R.id.btnRender).setOnClickListener { renderAndExportSTL() }
-        findViewById<View>(R.id.btnConsole)?.setOnClickListener { toggleConsole() }
         btnCancelCompute.setOnClickListener { cancelComputation() }
     }
 
     /**
-     * Show or hide the console log on demand. On phone layouts the console
-     * overlay lives on the Preview pane, so switch to that tab when revealing it.
+     * Toggle the console log. On phones the console is the third toolbar tab, so
+     * this selects/deselects that tab; on tablets (no tabs) it toggles the overlay
+     * directly. Invoked from the overflow menu.
      */
     private fun toggleConsole() {
         if (!::consoleViewModel.isInitialized) return
         val willShow = consoleViewModel.isVisible.value != true
-        if (willShow && !isTabletLayout) {
-            tabLayout?.getTabAt(1)?.select()
+        if (!isTabletLayout) {
+            val tabs = tabLayout
+            if (tabs != null) {
+                // Selecting the tab drives console visibility via the tab listener.
+                val target = if (willShow) TAB_CONSOLE else TAB_PREVIEW
+                tabs.getTabAt(target)?.select()
+                return
+            }
         }
         consoleViewModel.toggleVisibility()
+    }
+
+    /**
+     * Auto-dismisses the console shortly after a successful compute, unless the
+     * user is actively viewing the Console tab (phone) where yanking it would be
+     * jarring.
+     */
+    private fun autoHideConsoleAfterDelay() {
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (isTabletLayout || currentTabPosition != TAB_CONSOLE) {
+                consoleViewModel.hide()
+            }
+        }, 2000)
     }
 
     private fun setupFileManagement() {
@@ -457,7 +486,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateViewControlsVisibility() {
-        val isPreviewVisible = isTabletLayout || currentTabPosition == 1
+        val isPreviewVisible = isTabletLayout || currentTabPosition == TAB_PREVIEW
         val hasMesh = currentMesh != null
         viewControlsOverlay.visibility = if (isPreviewVisible && hasMesh) View.VISIBLE else View.GONE
     }
@@ -539,12 +568,11 @@ translate([0, 0, 20]) {
             }
         }
 
-        // Observe isVisible LiveData to toggle consoleContainer visibility
-        // Only show console when on the Preview tab (position 1) to avoid
-        // showing it on the Code tab during an active session.
-        // On tablet, console should always show when visible since both panes are visible.
+        // Observe isVisible LiveData to toggle consoleContainer visibility.
+        // On phone the console overlay is shown only while the Console tab is
+        // selected; on tablet both panes are visible so it shows whenever visible.
         consoleViewModel.isVisible.observe(this) { visible ->
-            val shouldShow = visible && (isTabletLayout || currentTabPosition == 1)
+            val shouldShow = visible && (isTabletLayout || currentTabPosition == TAB_CONSOLE)
             consoleContainer.visibility = if (shouldShow) View.VISIBLE else View.GONE
         }
 
@@ -624,6 +652,10 @@ translate([0, 0, 20]) {
             }
             R.id.menu_about -> {
                 startActivity(Intent(this, AboutActivity::class.java))
+                true
+            }
+            R.id.menu_console -> {
+                toggleConsole()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -767,6 +799,13 @@ translate([0, 0, 20]) {
             LogSeverity.WARN,
             "${errors.size} syntax problem(s) found — output may be incomplete."
         )
+        // Surface the console so the user sees the errors. On phone that means
+        // selecting the Console tab; on tablet the overlay shows directly.
+        if (!isTabletLayout) {
+            tabLayout?.getTabAt(TAB_CONSOLE)?.select()
+        } else {
+            consoleViewModel.show()
+        }
         return true
     }
 
@@ -817,7 +856,7 @@ translate([0, 0, 20]) {
                     // open when any were reported so the user notices them.
                     consoleViewModel.endSession(!hasSyntaxErrors)
                     if (!hasSyntaxErrors) {
-                        Handler(Looper.getMainLooper()).postDelayed({ consoleViewModel.hide() }, 2000)
+                        autoHideConsoleAfterDelay()
                     }
                     statusBar.text = "Preview: ${meshResult.triangleCount} triangles"
                 }
@@ -911,7 +950,7 @@ translate([0, 0, 20]) {
                     hideComputeProgress()
                     consoleViewModel.endSession(!hasSyntaxErrors)
                     if (!hasSyntaxErrors) {
-                        Handler(Looper.getMainLooper()).postDelayed({ consoleViewModel.hide() }, 2000)
+                        autoHideConsoleAfterDelay()
                     }
 
                     // Ask user where to save

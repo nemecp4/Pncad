@@ -45,6 +45,12 @@
                 android:icon="@drawable/ic_tab_preview"
                 android:contentDescription="3D Preview" />
 
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:icon="@drawable/ic_console"
+                android:contentDescription="@string/console" />
+
         </com.google.android.material.tabs.TabLayout>
 
     </com.google.android.material.appbar.MaterialToolbar>
@@ -305,18 +311,6 @@
             android:text="@string/render_stl"
             android:backgroundTint="@color/button_render"
             android:textColor="@color/white" />
-
-        <!-- Console toggle, next to the render action -->
-        <ImageButton
-            android:id="@+id/btnConsole"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/console"
-            android:src="@drawable/ic_console"
-            android:scaleType="centerInside"
-            app:tint="@color/white" />
 
     </LinearLayout>
 
