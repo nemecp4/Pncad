@@ -11,26 +11,14 @@
     android:paddingStart="8dp"
     android:paddingEnd="8dp">
 
-    <!-- File Menu icon button -->
+    <!-- Single File menu button: file operations + open-files list -->
     <ImageButton
         android:id="@+id/btnFileMenu"
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:layout_marginEnd="8dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="File menu"
+        android:contentDescription="@string/file_menu"
         android:src="@android:drawable/ic_menu_agenda"
-        android:scaleType="centerInside"
-        app:tint="@color/white" />
-
-    <!-- Open Files Menu icon button -->
-    <ImageButton
-        android:id="@+id/btnOpenFilesMenu"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Open files"
-        android:src="@android:drawable/ic_menu_sort_by_size"
         android:scaleType="centerInside"
         app:tint="@color/white" />
 

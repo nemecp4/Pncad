@@ -2,12 +2,13 @@
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@color/code_background"
     android:padding="4dp"
-    android:minWidth="160dp">
+    android:minWidth="220dp">
 
     <!-- New -->
     <LinearLayout
@@ -153,5 +154,50 @@
             android:textColor="@color/white"
             android:textSize="14sp" />
     </LinearLayout>
+
+    <!-- Divider between file operations and the open-files list -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
+        android:background="#333333" />
+
+    <!-- Open files section label -->
+    <TextView
+        android:id="@+id/openFilesLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:text="@string/file_menu_open_files"
+        android:textColor="#AAAAAA"
+        android:textSize="12sp"
+        android:textAllCaps="true" />
+
+    <!-- Open files list -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerOpenFiles"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:overScrollMode="ifContentScrolls"
+        android:scrollbars="vertical"
+        tools:listitem="@layout/item_open_file" />
+
+    <!-- Shown instead of the list when no files are open -->
+    <TextView
+        android:id="@+id/noOpenFilesText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:text="@string/file_menu_no_open_files"
+        android:textColor="#888888"
+        android:textSize="13sp"
+        android:visibility="gone" />
 
 </LinearLayout>

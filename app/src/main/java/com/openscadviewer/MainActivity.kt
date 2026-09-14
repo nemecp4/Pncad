@@ -37,12 +37,11 @@ import com.openscadviewer.editor.KeywordProvider
 import com.openscadviewer.editor.MathProvider
 import com.openscadviewer.editor.SyntaxHighlighter
 import com.openscadviewer.file.CloseDialogChoice
+import com.openscadviewer.file.CombinedFileMenuPopup
 import com.openscadviewer.file.FileBarController
-import com.openscadviewer.file.FileMenuPopup
 import com.openscadviewer.file.FileSession
 import com.openscadviewer.file.FileTabsController
 import com.openscadviewer.file.FileViewModel
-import com.openscadviewer.file.OpenFilesMenuPopup
 import com.openscadviewer.engine.ComputeException
 import com.openscadviewer.engine.EngineManager
 import com.openscadviewer.engine.EngineType
@@ -257,13 +256,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFileManagement() {
-        // The file bar (menu + open-files buttons) lives only in the phone layout;
-        // tablet (sw600dp) layouts omit it, so these views may be absent.
+        // The file bar (single menu button) lives in every layout, but guard the
+        // lookup defensively in case a layout variant omits it.
         val btnFileMenu = findViewById<ImageButton?>(R.id.btnFileMenu)
-        val btnOpenFilesMenu = findViewById<ImageButton?>(R.id.btnOpenFilesMenu)
 
-        if (btnFileMenu != null && btnOpenFilesMenu != null) {
-            val fileMenuPopup = FileMenuPopup(
+        if (btnFileMenu != null) {
+            val combinedMenuPopup = CombinedFileMenuPopup(
                 context = this,
                 onNew = { fileViewModel.newFile() },
                 onOpen = { fileViewModel.openFilePicker() },
@@ -274,19 +272,13 @@ class MainActivity : AppCompatActivity() {
                     if (action == FileViewModel.CloseAction.PROCEED) {
                         fileViewModel.closeActiveFile()
                     }
-                }
-            )
-
-            val openFilesMenuPopup = OpenFilesMenuPopup(
-                context = this,
+                },
                 onFileSelected = { sessionId -> fileViewModel.switchToFile(sessionId) }
             )
 
             fileBarController = FileBarController(
                 btnFileMenu = btnFileMenu,
-                btnOpenFilesMenu = btnOpenFilesMenu,
-                fileMenuPopup = fileMenuPopup,
-                openFilesMenuPopup = openFilesMenuPopup,
+                combinedMenuPopup = combinedMenuPopup,
                 getSessionsData = {
                     val sessions = fileViewModel.sessions.value ?: emptyList()
                     val activeId = fileViewModel.activeSession.value?.id

@@ -13,7 +13,7 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:background="@color/primary"
-        app:title="OpenSCAD Viewer"
+        app:title="@string/app_name"
         app:titleTextColor="@color/white" />
 
     <!-- File Bar for file operations and open-files list -->
