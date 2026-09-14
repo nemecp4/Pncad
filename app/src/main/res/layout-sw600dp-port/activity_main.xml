@@ -16,9 +16,6 @@
         app:title="@string/app_name"
         app:titleTextColor="@color/white" />
 
-    <!-- File Bar for file operations and open-files list -->
-    <include layout="@layout/file_bar" />
-
     <!-- Panes area: vertical split (top = code, bottom = preview) -->
     <LinearLayout
         android:layout_width="match_parent"

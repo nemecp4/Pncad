@@ -224,6 +224,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupToolbar() {
         setSupportActionBar(toolbar)
+        // File menu lives on the toolbar's navigation (top-left) icon.
+        toolbar.setNavigationIcon(android.R.drawable.ic_menu_agenda)
+        toolbar.navigationContentDescription = getString(R.string.file_menu)
+        toolbar.navigationIcon?.setTint(androidx.core.content.ContextCompat.getColor(this, R.color.white))
+        toolbar.setNavigationOnClickListener { fileBarController?.toggle() }
     }
 
     private fun setupTabLayout() {
@@ -256,36 +261,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFileManagement() {
-        // The file bar (single menu button) lives in every layout, but guard the
-        // lookup defensively in case a layout variant omits it.
-        val btnFileMenu = findViewById<ImageButton?>(R.id.btnFileMenu)
-
-        if (btnFileMenu != null) {
-            val combinedMenuPopup = CombinedFileMenuPopup(
-                context = this,
-                onNew = { fileViewModel.newFile() },
-                onOpen = { fileViewModel.openFilePicker() },
-                onSave = { fileViewModel.save() },
-                onSaveAs = { fileViewModel.saveAs() },
-                onClose = {
-                    val action = fileViewModel.closeWithConfirmation()
-                    if (action == FileViewModel.CloseAction.PROCEED) {
-                        fileViewModel.closeActiveFile()
-                    }
-                },
-                onFileSelected = { sessionId -> fileViewModel.switchToFile(sessionId) }
-            )
-
-            fileBarController = FileBarController(
-                btnFileMenu = btnFileMenu,
-                combinedMenuPopup = combinedMenuPopup,
-                getSessionsData = {
-                    val sessions = fileViewModel.sessions.value ?: emptyList()
-                    val activeId = fileViewModel.activeSession.value?.id
-                    Pair(sessions, activeId)
+        // The combined file menu is triggered from the toolbar's navigation icon
+        // (see setupToolbar) and anchored to the toolbar.
+        val combinedMenuPopup = CombinedFileMenuPopup(
+            context = this,
+            onNew = { fileViewModel.newFile() },
+            onOpen = { fileViewModel.openFilePicker() },
+            onSave = { fileViewModel.save() },
+            onSaveAs = { fileViewModel.saveAs() },
+            onClose = {
+                val action = fileViewModel.closeWithConfirmation()
+                if (action == FileViewModel.CloseAction.PROCEED) {
+                    fileViewModel.closeActiveFile()
                 }
-            ).also { it.setup() }
-        }
+            },
+            onFileSelected = { sessionId -> fileViewModel.switchToFile(sessionId) }
+        )
+
+        fileBarController = FileBarController(
+            anchor = toolbar,
+            combinedMenuPopup = combinedMenuPopup,
+            getSessionsData = {
+                val sessions = fileViewModel.sessions.value ?: emptyList()
+                val activeId = fileViewModel.activeSession.value?.id
+                Pair(sessions, activeId)
+            }
+        )
 
         // File tabs strip (phone layout only — the strip views live in that layout)
         val fileTabsScroll = findViewById<HorizontalScrollView?>(R.id.fileTabsScroll)
