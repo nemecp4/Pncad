@@ -1,0 +1,61 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  schedule:
+    # Weekly scan (Mondays 06:00 UTC) to catch newly published queries.
+    - cron: '0 6 * * 1'
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (java-kotlin)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          # Disable caching so restored build outputs don't cause the Kotlin
+          # compile tasks to be skipped (UP-TO-DATE), which would leave CodeQL
+          # with no compiled code to analyze.
+          cache-disabled: true
+
+      # CodeQL analyzes Kotlin via the "java-kotlin" language pack.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
+      # Manual build so CodeQL's tracer observes the actual Kotlin/Java
+      # compilation. `clean` plus no build cache / no daemon guarantees the
+      # compile tasks really run instead of being served from cache.
+      - name: Build for analysis
+        run: >-
+          ./gradlew clean compileDebugKotlin compileDebugJavaWithJavac
+          --no-build-cache --no-daemon --stacktrace
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:java-kotlin

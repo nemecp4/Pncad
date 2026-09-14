@@ -1,0 +1,117 @@
+Pncad — Licences
+================
+
+Pncad is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. The full text of the GNU GPL v3 appears at the bottom of this
+document and is also distributed with the source code in the LICENSE file.
+
+Pncad is built with the third-party open-source components listed below. The
+versions reflect the build at the time of publishing and may change in future
+releases. Each component remains under its own licence; the notices below are
+provided for attribution.
+
+
+Android / Kotlin runtime dependencies
+-------------------------------------
+
+AndroidX / Jetpack (Copyright The Android Open Source Project)
+  Licensed under the Apache License, Version 2.0.
+  - androidx.core:core-ktx (1.12.0)
+  - androidx.appcompat:appcompat (1.6.1)
+  - androidx.constraintlayout:constraintlayout (2.1.4)
+  - androidx.lifecycle:lifecycle-viewmodel-ktx (2.7.0)
+  - androidx.lifecycle:lifecycle-runtime-ktx (2.7.0)
+  - androidx.preference:preference-ktx (1.2.1)
+  - androidx.recyclerview:recyclerview (transitive)
+  https://developer.android.com/jetpack
+
+Material Components for Android (Copyright The Android Open Source Project / Google LLC)
+  Licensed under the Apache License, Version 2.0.
+  - com.google.android.material:material (1.11.0)
+  https://github.com/material-components/material-components-android
+
+Kotlin standard library and Kotlin Coroutines (Copyright JetBrains s.r.o. and Kotlin contributors)
+  Licensed under the Apache License, Version 2.0.
+  - org.jetbrains.kotlin:kotlin-stdlib
+  - org.jetbrains.kotlinx:kotlinx-coroutines-core (1.7.3)
+  - org.jetbrains.kotlinx:kotlinx-coroutines-android (1.7.3)
+  https://github.com/JetBrains/kotlin
+  https://github.com/Kotlin/kotlinx.coroutines
+
+JSON in Java (Copyright The JSON.org authors)
+  Licensed under the JSON License (a permissive, MIT-style licence).
+  - org.json:json (20231013)
+  https://github.com/stleary/JSON-java
+
+
+Native geometry engine (bundled C/C++ components)
+-------------------------------------------------
+
+The advanced (CGAL) compute engine statically links and bundles the following
+native libraries.
+
+CGAL — The Computational Geometry Algorithms Library (Copyright the CGAL Project)
+  CGAL is distributed under a combination of the GNU GPL v3 (or later) and the
+  GNU LGPL v3 (or later); the packages used by Pncad are the GPL-licensed
+  components. See https://www.cgal.org/license.html for details.
+  - CGAL (6.0.1)
+  https://www.cgal.org/
+
+Boost C++ Libraries (Copyright the Boost contributors)
+  Licensed under the Boost Software License, Version 1.0.
+  - Boost (1.86.0)
+  https://www.boost.org/
+
+GNU MP — The GNU Multiple Precision Arithmetic Library (Copyright the GMP authors, Free Software Foundation)
+  Dual-licensed under the GNU LGPL v3 (or later) and the GNU GPL v2 (or later).
+  As part of a GPL v3 application, GMP is used under the terms of the GNU LGPL v3.
+  - GMP
+  https://gmplib.org/
+
+GNU MPFR — Multiple-Precision Floating-point library (Copyright the MPFR authors, Free Software Foundation, INRIA)
+  Licensed under the GNU LGPL v3 (or later).
+  - MPFR
+  https://www.mpfr.org/
+
+
+Bundled assets
+--------------
+
+Liberation Fonts (Copyright Red Hat, Inc.)
+  Licensed under the SIL Open Font License, Version 1.1.
+  - LiberationSans-Regular.ttf
+  https://github.com/liberationfonts/liberation-fonts
+
+
+Full licence texts
+===================
+
+The complete texts of the licences referenced above are available from the
+URLs listed with each component. The GNU General Public License v3.0, under
+which Pncad itself is released, is reproduced below.
+
+
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by the Free
+ Software Foundation, either version 3 of the License, or (at your option)
+ any later version.
+
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License along with
+ this program. If not, see <https://www.gnu.org/licenses/>.
+
+ The full text of the GNU General Public License version 3 is included in the
+ source distribution (see the LICENSE file) and is available online at
+ https://www.gnu.org/licenses/gpl-3.0.txt

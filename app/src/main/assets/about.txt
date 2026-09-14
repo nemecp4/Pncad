@@ -1,0 +1,13 @@
+Pncad
+
+Replace this text with your app's About content.
+
+Pncad is an OpenSCAD viewer and renderer for Android. Write OpenSCAD code,
+preview the model, and export STL meshes on your device.
+
+Version: 1.0
+
+Pncad is free software released under the GNU General Public License v3.0.
+Source code is available from the project repository.
+
+© 2026 Pncad. All rights reserved.
