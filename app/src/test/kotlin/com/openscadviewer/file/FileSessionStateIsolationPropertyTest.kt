@@ -31,6 +31,7 @@ class FileSessionStateIsolationPropertyTest {
         override fun getAll(): MutableMap<String, *> = data.toMutableMap()
         override fun getString(key: String?, defValue: String?): String? =
             data[key] as? String ?: defValue
+        @Suppress("UNCHECKED_CAST")
         override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? =
             data[key] as? MutableSet<String> ?: defValues
         override fun getInt(key: String?, defValue: Int): Int =
