@@ -44,6 +44,21 @@ class ConsoleViewModel : ViewModel() {
         _isVisible.value = false
     }
 
+    /**
+     * Makes the console visible without starting a new compute session, so the
+     * user can review the log (e.g. via the Console button).
+     */
+    fun show() {
+        _isVisible.value = true
+    }
+
+    /**
+     * Toggles console visibility for the manual Console button.
+     */
+    fun toggleVisibility() {
+        _isVisible.value = _isVisible.value != true
+    }
+
     fun setAutoScroll(enabled: Boolean) {
         _autoScroll.value = enabled
     }

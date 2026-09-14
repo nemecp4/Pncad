@@ -22,6 +22,14 @@ sealed class ScadValue {
 }
 
 /**
+ * A syntax problem found while parsing, with the 1-based source line it occurred on.
+ */
+data class ParseError(
+    val line: Int,
+    val message: String
+)
+
+/**
  * Parser for a subset of OpenSCAD language.
  * Supports: cube, sphere, cylinder, translate, rotate, scale, union, difference, intersection,
  * color, linear_extrude, circle, square, polygon, text, module calls, user-defined functions,
@@ -36,6 +44,34 @@ class OpenSCADParser {
     private val functions = mutableMapOf<String, FunctionDefinition>()
     private var parseStartTime = System.currentTimeMillis()
     private val PARSE_TIMEOUT_MS = 10_000L
+
+    private val _errors = mutableListOf<ParseError>()
+
+    /**
+     * Syntax problems collected during the most recent [parse] call, in source order.
+     * Empty when the code parsed cleanly.
+     */
+    val parseErrors: List<ParseError> get() = _errors.toList()
+
+    /**
+     * Records a syntax problem at the character [offset] (defaults to the current position),
+     * translating the offset into a 1-based line number.
+     */
+    private fun recordError(message: String, offset: Int = pos) {
+        _errors.add(ParseError(line = lineAt(offset), message = message))
+    }
+
+    /**
+     * Converts a character [offset] into its 1-based line number in [input].
+     */
+    private fun lineAt(offset: Int): Int {
+        val clamped = offset.coerceIn(0, input.length)
+        var line = 1
+        for (i in 0 until clamped) {
+            if (input[i] == '\n') line++
+        }
+        return line
+    }
 
     companion object {
         private val VAR_ASSIGN_REGEX = Regex("^(\\$?[a-zA-Z_][a-zA-Z0-9_]*)\\s*=")
@@ -100,6 +136,7 @@ class OpenSCADParser {
         vars.clear()
         modules.clear()
         functions.clear()
+        _errors.clear()
         parseStartTime = System.currentTimeMillis()
 
         // Two-pass parsing: first pass scans for module and function definitions
@@ -295,7 +332,14 @@ class OpenSCADParser {
             return null
         }
 
-        val identifier = parseIdentifier() ?: return null
+        val identifierStart = pos
+        val identifier = parseIdentifier() ?: run {
+            // A statement that begins with something that isn't an identifier,
+            // assignment, or modifier is a syntax error. Skip the stray character(s).
+            recordError("Unexpected token '${input[pos]}'", pos)
+            skipToNextStatement()
+            return null
+        }
         skipWhitespaceAndComments()
 
         return when (identifier) {
@@ -323,7 +367,9 @@ class OpenSCADParser {
                 if (modules.containsKey(identifier)) {
                     parseModuleCall(identifier)
                 } else {
-                    // Unknown identifier - try to skip it
+                    // Unknown identifier — flag it as a syntax error, then skip past it
+                    // so parsing can continue and report further problems.
+                    recordError("Unknown command or identifier '$identifier'", identifierStart)
                     skipToNextStatement()
                     null
                 }

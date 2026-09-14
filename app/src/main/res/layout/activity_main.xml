@@ -306,6 +306,18 @@
             android:backgroundTint="@color/button_render"
             android:textColor="@color/white" />
 
+        <!-- Console toggle, next to the render action -->
+        <ImageButton
+            android:id="@+id/btnConsole"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/console"
+            android:src="@drawable/ic_console"
+            android:scaleType="centerInside"
+            app:tint="@color/white" />
+
     </LinearLayout>
 
     <!-- Status bar at very bottom -->

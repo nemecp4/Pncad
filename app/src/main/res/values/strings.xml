@@ -4,6 +4,7 @@
     <string name="open_file">Open File</string>
     <string name="preview">Preview</string>
     <string name="render_stl">Render STL</string>
+    <string name="console">Console</string>
     <string name="code_hint">OpenSCAD code will appear here...</string>
     <string name="no_file_loaded">No file loaded</string>
     <string name="rendering">Rendering...</string>

@@ -257,7 +257,21 @@ class MainActivity : AppCompatActivity() {
     private fun setupButtons() {
         findViewById<View>(R.id.btnPreview).setOnClickListener { generatePreview() }
         findViewById<View>(R.id.btnRender).setOnClickListener { renderAndExportSTL() }
+        findViewById<View>(R.id.btnConsole)?.setOnClickListener { toggleConsole() }
         btnCancelCompute.setOnClickListener { cancelComputation() }
+    }
+
+    /**
+     * Show or hide the console log on demand. On phone layouts the console
+     * overlay lives on the Preview pane, so switch to that tab when revealing it.
+     */
+    private fun toggleConsole() {
+        if (!::consoleViewModel.isInitialized) return
+        val willShow = consoleViewModel.isVisible.value != true
+        if (willShow && !isTabletLayout) {
+            tabLayout?.getTabAt(1)?.select()
+        }
+        consoleViewModel.toggleVisibility()
     }
 
     private fun setupFileManagement() {
@@ -735,6 +749,27 @@ translate([0, 0, 20]) {
 
     // --- Preview ---
 
+    /**
+     * Emits any syntax errors collected during the last [OpenSCADParser.parse] to the
+     * console log, each tagged with its source line. Returns true if there were any.
+     * Must be called after a parse and while a console session is active.
+     */
+    private fun emitParseErrors(): Boolean {
+        val errors = parser.parseErrors
+        if (errors.isEmpty()) return false
+        for (err in errors) {
+            consoleViewModel.logger.emit(
+                LogSeverity.ERROR,
+                "Line ${err.line}: ${err.message}"
+            )
+        }
+        consoleViewModel.logger.emit(
+            LogSeverity.WARN,
+            "${errors.size} syntax problem(s) found — output may be incomplete."
+        )
+        return true
+    }
+
     private fun generatePreview() {
         val code = codeEditor.text?.toString()
         if (code.isNullOrBlank()) {
@@ -759,6 +794,8 @@ translate([0, 0, 20]) {
                     parser.parse(code)
                 }
 
+                val hasSyntaxErrors = emitParseErrors()
+
                 val result = engineManager.currentEngine.compute(scene, progressCallback)
 
                 result.onSuccess { meshResult ->
@@ -776,8 +813,12 @@ translate([0, 0, 20]) {
                     currentMesh = meshResult
                     setupGLView(meshResult)
                     hideComputeProgress()
-                    consoleViewModel.endSession(true)
-                    Handler(Looper.getMainLooper()).postDelayed({ consoleViewModel.hide() }, 2000)
+                    // A partial render can still hide syntax errors — keep the console
+                    // open when any were reported so the user notices them.
+                    consoleViewModel.endSession(!hasSyntaxErrors)
+                    if (!hasSyntaxErrors) {
+                        Handler(Looper.getMainLooper()).postDelayed({ consoleViewModel.hide() }, 2000)
+                    }
                     statusBar.text = "Preview: ${meshResult.triangleCount} triangles"
                 }
 
@@ -854,6 +895,8 @@ translate([0, 0, 20]) {
                     parser.parse(code)
                 }
 
+                val hasSyntaxErrors = emitParseErrors()
+
                 val result = engineManager.currentEngine.compute(scene, progressCallback)
 
                 result.onSuccess { meshResult ->
@@ -866,8 +909,10 @@ translate([0, 0, 20]) {
 
                     currentMesh = meshResult
                     hideComputeProgress()
-                    consoleViewModel.endSession(true)
-                    Handler(Looper.getMainLooper()).postDelayed({ consoleViewModel.hide() }, 2000)
+                    consoleViewModel.endSession(!hasSyntaxErrors)
+                    if (!hasSyntaxErrors) {
+                        Handler(Looper.getMainLooper()).postDelayed({ consoleViewModel.hide() }, 2000)
+                    }
 
                     // Ask user where to save
                     val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
