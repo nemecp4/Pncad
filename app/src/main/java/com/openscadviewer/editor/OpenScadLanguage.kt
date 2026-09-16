@@ -279,8 +279,25 @@ class OpenScadLanguage : Language {
                     continue
                 }
 
-                // Anything else (operators, punctuation): plain text.
+                // Anything else (operators, punctuation): emit an explicit
+                // normal-text span. Without a span here these characters would
+                // inherit the color of the preceding token (or none at all),
+                // which is why plain/just-typed text could appear invisible.
+                val start = i
                 i++
+                while (i < length) {
+                    val ch = line[i]
+                    if (ch.isWhitespace()) break
+                    if (isIdentifierStart(ch)) break
+                    if (ch.isDigit()) break
+                    if (ch == '$' || ch == '"') break
+                    if (ch == '.' && i + 1 < length && line[i + 1].isDigit()) break
+                    if (ch == '/' && i + 1 < length &&
+                        (line[i + 1] == '/' || line[i + 1] == '*')
+                    ) break
+                    i++
+                }
+                out.add(TokenSpan(TYPE_NORMAL, start, i - start))
             }
 
             return blockComment
@@ -350,8 +367,15 @@ class OpenScadLanguage : Language {
         // VS Code palette already gives them the same color (keyword == boolean,
         // math == special variable), so no visual distinction is lost.
 
-        /** Default / unclassified text. Id 0 = editor's default text color. */
-        const val TYPE_NORMAL: Int = 0
+        /**
+         * Default / unclassified text (e.g. plain identifiers, operators, and
+         * text being typed before it is classified). Maps to sora's TEXT_NORMAL
+         * (id 5), the primary text color every scheme defines.
+         *
+         * Must NOT be id 0: sora's getColor() returns transparent for unmapped
+         * ids, so id 0 would render normal text invisible against the background.
+         */
+        const val TYPE_NORMAL: Int = 5
 
         /** Keywords (module, function, if, for, ...). sora KEYWORD. */
         const val TYPE_KEYWORD: Int = 21
