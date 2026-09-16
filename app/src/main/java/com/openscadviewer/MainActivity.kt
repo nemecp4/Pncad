@@ -50,6 +50,7 @@ import com.openscadviewer.renderer.TouchHandler
 import com.openscadviewer.settings.PreferenceKeys
 import com.openscadviewer.settings.SettingsActivity
 import com.openscadviewer.settings.mapBackgroundColor
+import com.openscadviewer.settings.mapEditorColorScheme
 import kotlinx.coroutines.*
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -129,6 +130,9 @@ class MainActivity : AppCompatActivity() {
                     prefs.getString(key, PreferenceKeys.DEFAULT_BACKGROUND_COLOR) ?: PreferenceKeys.DEFAULT_BACKGROUND_COLOR
                 )
                 glSurfaceView?.requestRender()
+            }
+            PreferenceKeys.KEY_EDITOR_THEME -> {
+                applyEditorTheme(prefs)
             }
         }
     }
@@ -485,6 +489,9 @@ class MainActivity : AppCompatActivity() {
         val completionAdapter = CompletionAdapter.create(lifecycleScope)
         completionAdapter.attachTo(language)
         editor.setLanguage(language)
+
+        // Apply the user's stored editor theme (color scheme).
+        applyEditorTheme(PreferenceManager.getDefaultSharedPreferences(this))
 
         // Load sample code
         val sampleCode = """// OpenSCAD Viewer - Sample
@@ -1126,5 +1133,18 @@ translate([0, 0, 20]) {
             )
             glSurfaceView?.requestRender()
         }
+    }
+
+    /**
+     * Applies the stored editor-theme preference to the code editor by mapping
+     * the preference value onto a sora [EditorColorScheme]. A fresh scheme
+     * instance is created each time so switching back and forth always renders
+     * a clean palette.
+     */
+    private fun applyEditorTheme(prefs: SharedPreferences) {
+        val value = prefs.getString(
+            PreferenceKeys.KEY_EDITOR_THEME, PreferenceKeys.DEFAULT_EDITOR_THEME
+        ) ?: PreferenceKeys.DEFAULT_EDITOR_THEME
+        editor.setColorScheme(mapEditorColorScheme(value))
     }
 }

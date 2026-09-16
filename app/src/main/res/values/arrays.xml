@@ -11,4 +11,24 @@
         <item>white</item>
         <item>yellow</item>
     </string-array>
+
+    <string-array name="editor_theme_labels">
+        <item>OpenSCAD Dark</item>
+        <item>OpenSCAD Light</item>
+        <item>Darcula</item>
+        <item>Visual Studio 2019</item>
+        <item>Eclipse</item>
+        <item>GitHub</item>
+        <item>Notepad++</item>
+    </string-array>
+
+    <string-array name="editor_theme_values">
+        <item>openscad_dark</item>
+        <item>openscad_light</item>
+        <item>darcula</item>
+        <item>vs2019</item>
+        <item>eclipse</item>
+        <item>github</item>
+        <item>notepadxx</item>
+    </string-array>
 </resources>

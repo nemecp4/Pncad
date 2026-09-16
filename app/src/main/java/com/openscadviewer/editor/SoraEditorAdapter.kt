@@ -6,6 +6,7 @@ import android.view.View
 import io.github.rosemoe.sora.event.ContentChangeEvent
 import io.github.rosemoe.sora.lang.Language
 import io.github.rosemoe.sora.widget.CodeEditor
+import io.github.rosemoe.sora.widget.schemes.EditorColorScheme
 
 /**
  * [EditorAdapter] backed by sora-editor's [CodeEditor].
@@ -103,6 +104,10 @@ class SoraEditorAdapter(
 
     override fun setLanguage(language: Language) {
         editor.setEditorLanguage(language)
+    }
+
+    override fun setColorScheme(scheme: EditorColorScheme) {
+        editor.colorScheme = scheme
     }
 
     override val view: View

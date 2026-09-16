@@ -40,4 +40,8 @@
     <string name="pref_show_wireframe_summary">Overlay mesh edges on the shaded model</string>
     <string name="pref_background_color_title">Background Color</string>
     <string name="pref_background_color_summary">Choose preview background</string>
+
+    <string name="pref_category_editor">Code Editor</string>
+    <string name="pref_editor_theme_title">Editor Theme</string>
+    <string name="pref_editor_theme_summary">Choose the code editor color scheme</string>
 </resources>

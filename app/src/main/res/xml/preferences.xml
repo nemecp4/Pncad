@@ -23,4 +23,14 @@
             android:defaultValue="dark_grey" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/pref_category_editor">
+        <ListPreference
+            android:key="pref_editor_theme"
+            android:title="@string/pref_editor_theme_title"
+            android:summary="@string/pref_editor_theme_summary"
+            android:entries="@array/editor_theme_labels"
+            android:entryValues="@array/editor_theme_values"
+            android:defaultValue="openscad_dark" />
+    </PreferenceCategory>
+
 </PreferenceScreen>

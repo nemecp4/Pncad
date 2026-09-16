@@ -8,6 +8,28 @@
     </style>
 
     <!--
+      Settings screen theme. The app is a fixed dark UI, but the base theme is
+      DayNight, so on light-mode devices the preference list rendered dark text
+      against the hardcoded dark settings background (unreadable black-on-black).
+      This theme pins the settings screen to a dark surface with light text
+      regardless of the system day/night mode.
+    -->
+    <style name="Theme.OpenSCADViewer.Settings" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="android:statusBarColor">@color/primary_dark</item>
+
+        <!-- Dark surface + light text for the preference list. -->
+        <item name="android:windowBackground">@color/background_dark</item>
+        <item name="android:colorBackground">@color/background_dark</item>
+        <item name="colorOnBackground">@color/white</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">#B3FFFFFF</item>
+    </style>
+
+    <!--
       Launch theme applied while the app process starts up. Uses the AndroidX
       core-splashscreen API so the system shows a branded splash on every
       supported OS version, then hands off to Theme.OpenSCADViewer.

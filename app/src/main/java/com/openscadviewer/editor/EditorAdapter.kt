@@ -2,6 +2,7 @@ package com.openscadviewer.editor
 
 import android.view.View
 import io.github.rosemoe.sora.lang.Language
+import io.github.rosemoe.sora.widget.schemes.EditorColorScheme
 
 /**
  * Abstraction over the concrete code-editor widget.
@@ -57,6 +58,14 @@ interface EditorAdapter {
      * wiring [OpenScadLanguage] + the completion bridge.
      */
     fun setLanguage(language: Language)
+
+    /**
+     * Applies a syntax-highlighting [EditorColorScheme] (editor theme).
+     *
+     * Lets [com.openscadviewer.MainActivity] swap the editor theme from the
+     * user's settings without depending on the concrete widget type.
+     */
+    fun setColorScheme(scheme: EditorColorScheme)
 
     /** Underlying [View] for adding to the layout / findViewById-style access. */
     val view: View
