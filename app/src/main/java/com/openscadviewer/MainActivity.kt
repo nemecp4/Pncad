@@ -226,6 +226,12 @@ class MainActivity : AppCompatActivity() {
         toolbar.navigationContentDescription = getString(R.string.file_menu)
         toolbar.navigationIcon?.setTint(androidx.core.content.ContextCompat.getColor(this, R.color.white))
         toolbar.setNavigationOnClickListener { fileBarController?.toggle() }
+
+        // On tablets both code and preview panes are always visible, so there is
+        // no tab strip. The console is an overlay toggled from this toolbar icon.
+        if (isTabletLayout) {
+            findViewById<View>(R.id.btnConsoleToggle)?.setOnClickListener { toggleConsole() }
+        }
     }
 
     private fun setupTabLayout() {
@@ -265,7 +271,7 @@ class MainActivity : AppCompatActivity() {
     /**
      * Toggle the console log. On phones the console is the third toolbar tab, so
      * this selects/deselects that tab; on tablets (no tabs) it toggles the overlay
-     * directly. Invoked from the overflow menu.
+     * directly. On tablets it is invoked from the toolbar console icon.
      */
     private fun toggleConsole() {
         if (!::consoleViewModel.isInitialized) return
@@ -603,10 +609,6 @@ translate([0, 0, 20]) {
             }
             R.id.menu_about -> {
                 startActivity(Intent(this, AboutActivity::class.java))
-                true
-            }
-            R.id.menu_console -> {
-                toggleConsole()
                 true
             }
             else -> super.onOptionsItemSelected(item)

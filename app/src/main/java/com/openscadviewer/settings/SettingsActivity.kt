@@ -1,8 +1,8 @@
 package com.openscadviewer.settings
 
 import android.os.Bundle
-import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.appbar.MaterialToolbar
 import com.openscadviewer.R
 
 class SettingsActivity : AppCompatActivity() {
@@ -12,16 +12,11 @@ class SettingsActivity : AppCompatActivity() {
         supportFragmentManager.beginTransaction()
             .replace(R.id.settings_container, SettingsPreferenceFragment())
             .commit()
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-    }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            android.R.id.home -> {
-                finish()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
+        // The app theme is NoActionBar, so host our own toolbar and use its
+        // navigation (Up) button to close the screen.
+        val toolbar = findViewById<MaterialToolbar>(R.id.settingsToolbar)
+        setSupportActionBar(toolbar)
+        toolbar.setNavigationOnClickListener { finish() }
     }
 }

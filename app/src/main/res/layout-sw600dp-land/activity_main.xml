@@ -14,7 +14,21 @@
         android:layout_height="?attr/actionBarSize"
         android:background="@color/primary"
         app:title="@string/app_name"
-        app:titleTextColor="@color/white" />
+        app:titleTextColor="@color/white">
+
+        <!-- Console toggle. Both code and preview panes are always visible on
+             tablets, so the console is an overlay toggled from this toolbar icon. -->
+        <ImageButton
+            android:id="@+id/btnConsoleToggle"
+            android:layout_width="?attr/actionBarSize"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/console"
+            android:src="@drawable/ic_console"
+            app:tint="@color/white" />
+
+    </com.google.android.material.appbar.MaterialToolbar>
 
     <!-- Split Pane Area (horizontal: code left, preview right) -->
     <LinearLayout
