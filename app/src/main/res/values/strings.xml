@@ -38,10 +38,10 @@
     <string name="pref_show_axes_summary">Display X/Y/Z orientation lines at the origin</string>
     <string name="pref_show_wireframe_title">Show Wireframe</string>
     <string name="pref_show_wireframe_summary">Overlay mesh edges on the shaded model</string>
-    <string name="pref_background_color_title">Background Color</string>
-    <string name="pref_background_color_summary">Choose preview background</string>
+    <string name="pref_background_color_title">Preview Background</string>
+    <string name="pref_background_color_summary">Choose preview background (applied when you return to the editor)</string>
 
     <string name="pref_category_editor">Code Editor</string>
     <string name="pref_editor_theme_title">Editor Theme</string>
-    <string name="pref_editor_theme_summary">Choose the code editor color scheme</string>
+    <string name="pref_editor_theme_summary">Choose the code editor color scheme (applied when you return to the editor)</string>
 </resources>

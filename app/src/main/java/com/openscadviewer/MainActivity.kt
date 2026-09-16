@@ -1079,9 +1079,14 @@ translate([0, 0, 20]) {
     override fun onResume() {
         super.onResume()
         glSurfaceView?.onResume()
-        PreferenceManager.getDefaultSharedPreferences(this)
-            .registerOnSharedPreferenceChangeListener(prefListener)
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        prefs.registerOnSharedPreferenceChangeListener(prefListener)
+        // Re-apply settings changed while paused (e.g. in the Settings screen,
+        // during which this listener is unregistered). applyStoredPreferences
+        // covers the preview once its renderer exists; the editor theme is
+        // re-applied here because the editor is always present by onResume.
         applyStoredPreferences()
+        applyEditorTheme(prefs)
     }
 
     override fun onPause() {
