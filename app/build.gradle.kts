@@ -48,11 +48,24 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+    // The native CGAL engine depends on vendored headers/libs (CGAL, Boost,
+    // GMP, MPFR) that are too large to check into version control. When those
+    // headers are absent — e.g. on CI — skip registering the native build so
+    // assembleDebug still succeeds without the native .so.
+    val cgalHeadersPresent = file("vendor/cgal/include/CGAL").isDirectory
+    if (cgalHeadersPresent) {
+        externalNativeBuild {
+            cmake {
+                path = file("src/main/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
         }
+    } else {
+        logger.warn(
+            "Vendor CGAL headers not found at app/vendor/cgal/include/CGAL — " +
+                "skipping the native CGAL engine build. The APK will be assembled " +
+                "without the native library. See app/vendor/README.md to set up vendored deps."
+        )
     }
 }
 
