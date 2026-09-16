@@ -26,16 +26,15 @@ class OpenScadLightColorScheme : EditorColorScheme() {
         setColor(SELECTION_INSERT, CODE_TEXT)
         setColor(SELECTED_TEXT_BACKGROUND, SELECTION_BACKGROUND)
 
-        // --- Custom OpenSCAD span categories --------------------------------
-        setColor(OpenScadLanguage.TYPE_NORMAL, CODE_TEXT)
-        setColor(OpenScadLanguage.TYPE_KEYWORD, KEYWORD)
-        setColor(OpenScadLanguage.TYPE_BUILTIN, BUILTIN)
-        setColor(OpenScadLanguage.TYPE_MATH, MATH)
-        setColor(OpenScadLanguage.TYPE_NUMBER, NUMBER)
-        setColor(OpenScadLanguage.TYPE_BOOLEAN, BOOLEAN)
-        setColor(OpenScadLanguage.TYPE_VARIABLE, VARIABLE)
-        setColor(OpenScadLanguage.TYPE_STRING, STRING)
-        setColor(OpenScadLanguage.TYPE_COMMENT, COMMENT)
+        // --- OpenSCAD token colors ------------------------------------------
+        // Same standard-id mapping as the dark scheme (see OpenScadColorScheme);
+        // each shared id is set exactly once with the light palette.
+        setColor(KEYWORD, KEYWORD_COLOR)              // keywords + booleans
+        setColor(FUNCTION_NAME, BUILTIN_COLOR)        // built-in modules/functions
+        setColor(IDENTIFIER_VAR, VARIABLE_COLOR)      // math functions + $-variables
+        setColor(LITERAL, NUMBER_COLOR)               // numeric literals
+        setColor(IDENTIFIER_NAME, STRING_COLOR)       // string literals
+        setColor(COMMENT, COMMENT_COLOR)              // comments
     }
 
     private companion object {
@@ -49,13 +48,11 @@ class OpenScadLightColorScheme : EditorColorScheme() {
         const val SELECTION_BACKGROUND = 0xFFADD6FF.toInt()
 
         // Syntax palette (VS Code "Light+" style).
-        const val KEYWORD = 0xFF0000FF.toInt()
-        const val BUILTIN = 0xFF267F99.toInt()
-        const val MATH = 0xFF795E26.toInt()
-        const val NUMBER = 0xFF098658.toInt()
-        const val BOOLEAN = 0xFF0000FF.toInt()
-        const val VARIABLE = 0xFF795E26.toInt()
-        const val STRING = 0xFFA31515.toInt()
-        const val COMMENT = 0xFF008000.toInt()
+        const val KEYWORD_COLOR = 0xFF0000FF.toInt()
+        const val BUILTIN_COLOR = 0xFF267F99.toInt()
+        const val VARIABLE_COLOR = 0xFF795E26.toInt()
+        const val NUMBER_COLOR = 0xFF098658.toInt()
+        const val STRING_COLOR = 0xFFA31515.toInt()
+        const val COMMENT_COLOR = 0xFF008000.toInt()
     }
 }

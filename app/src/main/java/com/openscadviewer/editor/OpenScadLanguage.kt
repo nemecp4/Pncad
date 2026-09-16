@@ -329,35 +329,53 @@ class OpenScadLanguage : Language {
 
     companion object {
         // --- Public span category (color-scheme) IDs -------------------------
-        // The later EditorColorScheme task maps each of these ids to a color.
-        // Ids start above the reserved range used by sora's built-in scheme.
+        // These are sora's STANDARD token color ids (see EditorColorScheme). We
+        // deliberately reuse the standard ids rather than inventing custom ones
+        // so that BOTH the custom OpenSCAD themes AND sora's bundled themes color
+        // OpenSCAD tokens correctly:
+        //
+        //   * Every bundled scheme (Darcula, VS2019, Eclipse, GitHub, Notepad++)
+        //     already defines colors for these standard ids, so OpenSCAD code is
+        //     readable on those themes with no per-theme work.
+        //   * The custom OpenScadColorScheme / OpenScadLightColorScheme override
+        //     these same ids with the VS Code palette for the exact intended look.
+        //
+        // A previous version used private ids in the 40-47 range, which collided
+        // with sora's reserved ids (that range is used internally for snippet /
+        // completion / delimiter *backgrounds*). That made tokens render with a
+        // background block on the custom themes and rendered them invisible on the
+        // bundled themes (which map those ids to backgrounds / leave them unset).
+        //
+        // Several OpenSCAD categories intentionally share a standard id where the
+        // VS Code palette already gives them the same color (keyword == boolean,
+        // math == special variable), so no visual distinction is lost.
 
-        /** Default / unclassified text. */
+        /** Default / unclassified text. Id 0 = editor's default text color. */
         const val TYPE_NORMAL: Int = 0
 
-        /** OpenSCAD language keywords (module, function, if, for, ...). */
-        const val TYPE_KEYWORD: Int = 40
+        /** Keywords (module, function, if, for, ...). sora KEYWORD. */
+        const val TYPE_KEYWORD: Int = 21
 
-        /** Built-in modules/functions (cube, translate, union, ...). */
-        const val TYPE_BUILTIN: Int = 41
+        /** Built-in modules/functions (cube, translate, union, ...). sora FUNCTION_NAME. */
+        const val TYPE_BUILTIN: Int = 27
 
-        /** Math functions (sin, cos, sqrt, ...). */
-        const val TYPE_MATH: Int = 42
+        /** Math functions (sin, cos, sqrt, ...). sora IDENTIFIER_VAR. */
+        const val TYPE_MATH: Int = 25
 
-        /** Numeric literals. */
-        const val TYPE_NUMBER: Int = 43
+        /** Numeric literals. sora LITERAL. */
+        const val TYPE_NUMBER: Int = 24
 
-        /** Boolean/undef literals (true, false, undef). */
-        const val TYPE_BOOLEAN: Int = 44
+        /** Boolean/undef literals (true, false, undef). sora KEYWORD (same as keywords). */
+        const val TYPE_BOOLEAN: Int = 21
 
-        /** `$`-prefixed special variables ($fn, $fa, $t, ...). */
-        const val TYPE_VARIABLE: Int = 45
+        /** `$`-prefixed special variables ($fn, $fa, $t, ...). sora IDENTIFIER_VAR (same as math). */
+        const val TYPE_VARIABLE: Int = 25
 
-        /** String literals. */
-        const val TYPE_STRING: Int = 46
+        /** String literals. sora IDENTIFIER_NAME. */
+        const val TYPE_STRING: Int = 26
 
-        /** Line and block comments. */
-        const val TYPE_COMMENT: Int = 47
+        /** Line and block comments. sora COMMENT. */
+        const val TYPE_COMMENT: Int = 22
 
         private val EMPTY_NEWLINE_HANDLERS = emptyArray<NewlineHandler>()
 
