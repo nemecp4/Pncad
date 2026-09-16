@@ -1,0 +1,295 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Add sora-editor dependency": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511905642
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511913132
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789512071146
+      }
+    ],
+    "2.1 Create `EditorAdapter` interface": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511905738
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789512075697
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789512146891
+      }
+    ],
+    "2.2 Implement `SoraEditorAdapter`": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511905807
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789512149990
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789512592116
+      }
+    ],
+    "3.1 Create `OpenScadLanguage` (sora `Language`) with incremental highlighting": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511905854
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789512601536
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789516518069
+      }
+    ],
+    "3.2 Create `CompletionAdapter` bridging to the existing engine": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511905900
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789516530942
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789516805622
+      }
+    ],
+    "3.3 Define the `EditorColorScheme`": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511905957
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789516531843
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789516885960
+      }
+    ],
+    "4.1 Replace the editor block in the phone layout": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511906011
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789516891822
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789516969900
+      }
+    ],
+    "4.2 Replace the editor block in the tablet layout": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511906063
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789516974767
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517066500
+      }
+    ],
+    "5.1 Replace editor fields and `initViews`": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511906116
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517083077
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517160722
+      }
+    ],
+    "5.2 Update `setupCodeEditor`": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511906169
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517164113
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517308702
+      }
+    ],
+    "5.3 Update content sync and session observer": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511906268
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517312201
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517425630
+      }
+    ],
+    "5.4 Update parser feed sites": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511906317
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517429780
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517572305
+      }
+    ],
+    "6.1 Build and run the manual verification checklist": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511906368
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517577498
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517669905
+      }
+    ],
+    "6.2 Remove redundant legacy classes": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511906425
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517674620
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517760108
+      }
+    ],
+    "6.3 Confirm retained completion tests pass": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789511906476
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517763856
+      },
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789521427634
+      }
+    ],
+    "2. Define the editor abstraction": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789512592198
+      }
+    ],
+    "3. Implement OpenSCAD language support": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789516885997
+      }
+    ],
+    "4. Swap the widget in the layouts": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517066565
+      }
+    ],
+    "5. Rewire `MainActivity` through the adapter": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789517572355
+      }
+    ],
+    "6. Verify parity, then remove legacy code": [
+      {
+        "executionId": "01f72855-4913-4429-8a48-721b112e39a8",
+        "chatSessionId": "sess_eb5d1950-9392-41f3-a436-5712b9288d9b",
+        "timestamp": 1789521427715
+      }
+    ]
+  }
+}

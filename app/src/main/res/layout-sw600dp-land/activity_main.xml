@@ -24,57 +24,11 @@
         android:orientation="horizontal">
 
         <!-- Code Editor Pane (left) -->
-        <ScrollView
+        <io.github.rosemoe.sora.widget.CodeEditor
+            android:id="@+id/codeEditor"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:fillViewport="true">
-
-            <HorizontalScrollView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:background="@color/code_background"
-                    android:padding="8dp">
-
-                    <!-- Line numbers -->
-                    <TextView
-                        android:id="@+id/lineNumbers"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="monospace"
-                        android:textSize="13sp"
-                        android:textColor="#858585"
-                        android:gravity="end"
-                        android:paddingEnd="12dp"
-                        android:paddingStart="4dp"
-                        tools:text="1\n2\n3" />
-
-                    <!-- Code content with syntax highlighting -->
-                    <EditText
-                        android:id="@+id/codeEditor"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minWidth="600dp"
-                        android:background="@null"
-                        android:fontFamily="monospace"
-                        android:textSize="13sp"
-                        android:textColor="@color/code_text"
-                        android:hint="@string/code_hint"
-                        android:textColorHint="#555555"
-                        android:gravity="top|start"
-                        android:inputType="textMultiLine|textNoSuggestions"
-                        android:scrollHorizontally="true" />
-
-                </LinearLayout>
-
-            </HorizontalScrollView>
-
-        </ScrollView>
+            android:layout_weight="1" />
 
         <!-- Pane Divider (vertical line) -->
         <View

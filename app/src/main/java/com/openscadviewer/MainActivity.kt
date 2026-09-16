@@ -28,14 +28,10 @@ import com.google.android.material.tabs.TabLayout
 import com.openscadviewer.console.ConsoleAdapter
 import com.openscadviewer.console.ConsoleViewModel
 import com.openscadviewer.console.LogSeverity
-import com.openscadviewer.editor.BuiltinProvider
-import com.openscadviewer.editor.CompletionEngine
-import com.openscadviewer.editor.CompletionPopup
-import com.openscadviewer.editor.CompletionTextWatcher
-import com.openscadviewer.editor.DocumentScanner
-import com.openscadviewer.editor.KeywordProvider
-import com.openscadviewer.editor.MathProvider
-import com.openscadviewer.editor.SyntaxHighlighter
+import com.openscadviewer.editor.CompletionAdapter
+import com.openscadviewer.editor.EditorAdapter
+import com.openscadviewer.editor.OpenScadLanguage
+import com.openscadviewer.editor.SoraEditorAdapter
 import com.openscadviewer.file.CloseDialogChoice
 import com.openscadviewer.file.CombinedFileMenuPopup
 import com.openscadviewer.file.FileBarController
@@ -72,8 +68,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var toolbar: MaterialToolbar
-    private lateinit var codeEditor: EditText
-    private lateinit var lineNumbers: TextView
+    private lateinit var editor: EditorAdapter
     private var viewFlipper: ViewFlipper? = null
     private var tabLayout: TabLayout? = null
     private lateinit var previewContainer: FrameLayout
@@ -86,7 +81,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var fileViewModel: FileViewModel
     private var fileBarController: FileBarController? = null
     private var fileTabsController: FileTabsController? = null
-    private var isLoadingContent = false
 
     private val isTabletLayout: Boolean by lazy {
         findViewById<View>(R.id.paneDivider) != null
@@ -106,7 +100,6 @@ class MainActivity : AppCompatActivity() {
     private var glSurfaceView: GLSurfaceView? = null
     private var sceneRenderer: SceneRenderer? = null
     private var touchHandler: TouchHandler? = null
-    private var syntaxHighlighter: SyntaxHighlighter? = null
     private lateinit var viewControlsOverlay: LinearLayout
 
     private val parser = OpenSCADParser()
@@ -167,8 +160,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun initViews() {
         toolbar = findViewById(R.id.toolbar)
-        codeEditor = findViewById(R.id.codeEditor)
-        lineNumbers = findViewById(R.id.lineNumbers)
+        editor = SoraEditorAdapter(findViewById<io.github.rosemoe.sora.widget.CodeEditor>(R.id.codeEditor))
         previewContainer = findViewById(R.id.previewContainer)
         previewPlaceholder = findViewById(R.id.previewPlaceholder)
         progressBar = findViewById(R.id.progressBar)
@@ -351,25 +343,20 @@ class MainActivity : AppCompatActivity() {
         // Observe active session — update editor text and status bar
         fileViewModel.activeSession.observe(this) { session ->
             if (session != null) {
-                codeEditor.isEnabled = true
-                codeEditor.hint = getString(R.string.code_hint)
-                val editorText = codeEditor.text?.toString() ?: ""
-                if (editorText != session.content) {
-                    isLoadingContent = true
-                    codeEditor.setText(session.content)
+                editor.setEditable(true)
+                editor.setPlaceholder(getString(R.string.code_hint))
+                if (editor.getText() != session.content) {
+                    editor.setText(session.content)
                     val clampedCursor = minOf(session.cursorPosition, session.content.length)
-                    codeEditor.setSelection(clampedCursor)
-                    isLoadingContent = false
+                    editor.setCursor(clampedCursor)
                 }
                 val prefix = if (session.isDirty) "*" else ""
                 statusBar.text = "$prefix${session.displayName}"
             } else {
                 // No active session — show empty/placeholder state
-                isLoadingContent = true
-                codeEditor.setText("")
-                codeEditor.hint = "Open a file from the File menu"
-                codeEditor.isEnabled = false
-                isLoadingContent = false
+                editor.setText("")
+                editor.setPlaceholder("Open a file from the File menu")
+                editor.setEditable(false)
                 statusBar.text = getString(R.string.no_file_loaded)
             }
             // Keep the tabs strip in sync with the active file (highlight + dirty marker)
@@ -436,20 +423,13 @@ class MainActivity : AppCompatActivity() {
         val contentUpdateHandler = Handler(Looper.getMainLooper())
         var contentUpdateRunnable: Runnable? = null
 
-        codeEditor.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                if (isLoadingContent) return
-                contentUpdateRunnable?.let { contentUpdateHandler.removeCallbacks(it) }
-                contentUpdateRunnable = Runnable {
-                    val text = codeEditor.text?.toString() ?: ""
-                    val cursor = codeEditor.selectionStart
-                    fileViewModel.onEditorContentChanged(text, cursor)
-                }
-                contentUpdateHandler.postDelayed(contentUpdateRunnable!!, 300)
+        editor.setOnContentChanged { text, cursor ->
+            contentUpdateRunnable?.let { contentUpdateHandler.removeCallbacks(it) }
+            contentUpdateRunnable = Runnable {
+                fileViewModel.onEditorContentChanged(text, cursor)
             }
-        })
+            contentUpdateHandler.postDelayed(contentUpdateRunnable!!, 300)
+        }
     }
 
     private fun showCloseConfirmationDialog() {
@@ -492,34 +472,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupCodeEditor() {
-        syntaxHighlighter = SyntaxHighlighter(codeEditor)
-        syntaxHighlighter?.attach()
-
-        // Update line numbers when text changes
-        codeEditor.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                updateLineNumbers()
-            }
-        })
-
-        // Code completion setup
-        val documentScanner = DocumentScanner(lifecycleScope)
-        val providers = listOf(
-            documentScanner,
-            KeywordProvider(),
-            BuiltinProvider(),
-            MathProvider()
-        )
-        val completionEngine = CompletionEngine(providers)
-
-        lateinit var completionWatcher: CompletionTextWatcher
-        val completionPopup = CompletionPopup(this, codeEditor) { item ->
-            completionWatcher.insertCompletion(item)
-        }
-        completionWatcher = CompletionTextWatcher(codeEditor, completionEngine, completionPopup, documentScanner)
-        codeEditor.addTextChangedListener(completionWatcher)
+        // Highlighting (OpenScadLanguage) + completion (CompletionAdapter bridging
+        // the existing CompletionEngine/providers) are attached through the adapter,
+        // keeping this activity off the concrete widget type.
+        val language = OpenScadLanguage()
+        val completionAdapter = CompletionAdapter.create(lifecycleScope)
+        completionAdapter.attachTo(language)
+        editor.setLanguage(language)
 
         // Load sample code
         val sampleCode = """// OpenSCAD Viewer - Sample
@@ -534,15 +493,7 @@ translate([0, 0, 20]) {
     cylinder(h=10, r1=8, r2=4, center=true);
 }
 """
-        codeEditor.setText(sampleCode)
-        updateLineNumbers()
-    }
-
-    private fun updateLineNumbers() {
-        val text = codeEditor.text?.toString() ?: ""
-        val lines = text.split("\n").size
-        val numbers = (1..lines).joinToString("\n")
-        lineNumbers.text = numbers
+        editor.setText(sampleCode)
     }
 
     // --- Console Setup ---
@@ -736,14 +687,11 @@ translate([0, 0, 20]) {
             contentResolver.openInputStream(uri)?.use { inputStream ->
                 val reader = BufferedReader(InputStreamReader(inputStream))
                 val content = reader.readText()
-                codeEditor.setText(content)
+                editor.setText(content)
 
                 // Extract filename
                 currentFileName = uri.lastPathSegment?.substringAfterLast("/") ?: "file.scad"
                 statusBar.text = "Loaded: $currentFileName"
-
-                // Apply syntax highlighting
-                syntaxHighlighter?.highlightSyntax()
             }
         } catch (e: Exception) {
             showError("Failed to open file: ${e.message}")
@@ -810,8 +758,8 @@ translate([0, 0, 20]) {
     }
 
     private fun generatePreview() {
-        val code = codeEditor.text?.toString()
-        if (code.isNullOrBlank()) {
+        val code = editor.getText()
+        if (code.isBlank()) {
             showError("No code to preview")
             return
         }
@@ -915,8 +863,8 @@ translate([0, 0, 20]) {
     // --- STL Export ---
 
     private fun renderAndExportSTL() {
-        val code = codeEditor.text?.toString()
-        if (code.isNullOrBlank()) {
+        val code = editor.getText()
+        if (code.isBlank()) {
             showError("No code to render")
             return
         }
@@ -1059,8 +1007,8 @@ translate([0, 0, 20]) {
      * Called from onPause().
      */
     private fun saveStateToViewModel() {
-        viewModel.editorText = codeEditor.text?.toString() ?: ""
-        viewModel.cursorPosition = codeEditor.selectionStart
+        viewModel.editorText = editor.getText()
+        viewModel.cursorPosition = editor.getCursor()
         viewModel.currentFileName = currentFileName
         viewModel.statusBarText = statusBar.text?.toString() ?: ""
         viewModel.meshVertices = currentMesh?.vertices
@@ -1090,9 +1038,9 @@ translate([0, 0, 20]) {
         if (viewModel.editorText.isEmpty()) return
 
         // Restore editor text and cursor position
-        codeEditor.setText(viewModel.editorText)
+        editor.setText(viewModel.editorText)
         val clampedCursor = minOf(viewModel.cursorPosition, viewModel.editorText.length)
-        codeEditor.setSelection(clampedCursor)
+        editor.setCursor(clampedCursor)
 
         // Restore file name and status bar
         currentFileName = viewModel.currentFileName
@@ -1154,7 +1102,6 @@ translate([0, 0, 20]) {
             viewModel.isComputing = false
             viewModel.statusBarText = "Computation cancelled"
         }
-        syntaxHighlighter?.detach()
         coroutineScope.cancel()
     }
 

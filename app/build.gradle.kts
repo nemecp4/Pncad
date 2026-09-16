@@ -74,6 +74,10 @@ dependencies {
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
+    // sora-editor: native Android code editor widget (pinned to a stable 0.23.x release)
+    implementation(platform("io.github.Rosemoe.sora-editor:bom:0.23.6"))
+    implementation("io.github.Rosemoe.sora-editor:editor")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
